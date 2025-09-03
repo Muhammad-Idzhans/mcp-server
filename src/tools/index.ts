@@ -1,5 +1,8 @@
+// src/tools/index.ts
 import { runNamedQuery } from "./sql/index.js";
 
-export const tools = [
-  runNamedQuery, // Add more tools later, e.g., image extractor, etc.
-];
+/**
+ * Export all tool descriptors. The server (stdio.ts) will register them
+ * using server.registerTool(...).
+ */
+export const tools = [runNamedQuery];

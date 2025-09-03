@@ -43,3 +43,8 @@ mkdir -p src/{server,tools/sql,db,client}
 
 
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+For testing the connectivity, we can test by running this in the cmd:
+npm run db:ping
+
+This connection will return means that it is connected fine and can proceed with the connection to the server itself.
