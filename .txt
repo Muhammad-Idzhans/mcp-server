@@ -45,6 +45,47 @@ mkdir -p src/{server,tools/sql,db,client}
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 For testing the connectivity, we can test by running this in the cmd:
+```
 npm run db:ping
+```
 
 This connection will return means that it is connected fine and can proceed with the connection to the server itself.
+Make sure to comment other connection first before testing with the particular connection.
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+RUN ONE DATABASE CONTAINER AT A TIME:
+1. PostgreSQL:
+Create: docker run -d --name pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=appdb -p 5432:5432 postgres:16
+```
+# 2) PostgreSQL
+DB_PROVIDER=postgres
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/appdb
+```
+
+2. MySQL:
+Create: docker run -d --name mysql -e MYSQL_ROOT_PASSWORD=rootpass -e MYSQL_DATABASE=appdb -p 3306:3306 mysql:8
+```
+# 3) MySQL / MariaDB
+# DB_PROVIDER=mysql
+# DATABASE_URL=mysql://root:rootpass@127.0.0.1:3306/appdb
+```
+
+3. SQL Server:
+Create: docker run -d --name mssql -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=Passw0rd!" -p 1433:1433 mcr.microsoft.com/mssql/server:2022-latest
+```
+# 4) SQL Server / Azure SQL
+# DB_PROVIDER=mssql
+# DATABASE_URL=Server=localhost,1433;Database=appdb;User Id=sa;Password=Passw0rd!;Encrypt=true;TrustServerCertificate=true
+# Example (keep commented):
+# Server=HOST,1433;Database=DB;User Id=USER;Password=PASS;Encrypt=true
+```
+
+4. Create: docker run -d --name oracle -e ORACLE_PASSWORD=oracle -p 1521:1521 gvenzl/oracle-xe:21-slim
+```
+# 5) Oracle
+# DB_PROVIDER=oracle
+# DATABASE_URL=system/oracle@127.0.0.1:1521/XEPDB1  
+```
+
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
