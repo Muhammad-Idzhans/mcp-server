@@ -1,21 +1,176 @@
-// Function to get the appropriate database provider based on environment variable
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * src/db/index.ts
+ *
+ * Minimal, env-driven DB provider selector.
+ * - Resolves from DB_PROVIDER or DB_DIALECT (or DATABASE_URL scheme), defaulting to sqlite.
+ * - Normalizes synonyms (postgres/postgresql -> pg, mariadb -> mysql, sqlserver -> mssql, sqlite3 -> sqlite).
+ * - Prefers factory exports (newDb/createDb/default()) else falls back to singletons (pgDb/mysqlDb/...).
+ */
+
 import type { DB } from "./provider.js";
 
+type CanonicalDialect = "pg" | "mysql" | "mssql" | "oracle" | "sqlite";
+
+const DIALECT_SYNONYMS: Record<string, CanonicalDialect> = {
+  // Postgres
+  pg: "pg",
+  postgres: "pg",
+  postgresql: "pg",
+  psql: "pg",
+
+  // MySQL
+  mysql: "mysql",
+  mariadb: "mysql",
+  maria: "mysql",
+
+  // SQL Server
+  mssql: "mssql",
+  "ms-sql": "mssql",
+  sqlserver: "mssql",
+  "sql-server": "mssql",
+
+  // Oracle
+  oracle: "oracle",
+  oracledb: "oracle",
+  oci: "oracle",
+
+  // SQLite
+  sqlite: "sqlite",
+  sqlite3: "sqlite",
+};
+
+function canonicalizeDialect(input?: string | null): CanonicalDialect | undefined {
+  if (!input) return undefined;
+  const key = String(input).trim().toLowerCase();
+  return DIALECT_SYNONYMS[key];
+}
+
+function dialectFromDatabaseUrl(url?: string): CanonicalDialect | undefined {
+  if (!url) return undefined;
+
+  if (url.startsWith("sqlite:") || url.startsWith("file:") || url.includes("sqlite::memory:")) {
+    return "sqlite";
+  }
+
+  try {
+    const u = new URL(url);
+    const proto = u.protocol.replace(":", "").toLowerCase();
+    if (proto === "file") return "sqlite";
+    return DIALECT_SYNONYMS[proto];
+  } catch {
+    if (/\bsqlite\b/i.test(url) || /\.sqlite3?$/i.test(url)) return "sqlite";
+    return undefined;
+  }
+}
+
+function resolveDialectFromEnv(env = process.env): CanonicalDialect {
+  const fromProvider = canonicalizeDialect(env.DB_PROVIDER);
+  if (fromProvider) return fromProvider;
+
+  const fromDialect = canonicalizeDialect(env.DB_DIALECT);
+  if (fromDialect) return fromDialect;
+
+  const fromUrl = dialectFromDatabaseUrl(env.DATABASE_URL);
+  if (fromUrl) return fromUrl;
+
+  return "sqlite"; // default
+}
+
+/** Attach canonical dialect hint on the db object. */
+function annotateDialect<T extends object>(db: T, dialect: CanonicalDialect): T & { dialect: CanonicalDialect } {
+  if (!db) return { dialect } as any;
+  if ((db as any).dialect !== dialect) {
+    try {
+      Object.defineProperty(db as any, "dialect", { value: dialect, enumerable: true });
+    } catch {
+      (db as any).dialect = dialect;
+    }
+  }
+  return db as any;
+}
+
+/** Prefer factory if available, else fall back to well-known singleton names. */
+function materializeDb(mod: any, dialect: CanonicalDialect): DB {
+  // 1) Factories (preferred)
+  if (typeof mod?.newDb === "function") {
+    const db = mod.newDb();
+    return annotateDialect(db, dialect);
+  }
+  if (typeof mod?.createDb === "function") {
+    const db = mod.createDb();
+    return annotateDialect(db, dialect);
+  }
+  if (typeof mod?.default === "function") {
+    const db = mod.default();
+    return annotateDialect(db, dialect);
+  }
+
+  // 2) default export already a db object?
+  if (mod?.default && typeof mod.default === "object" && typeof mod.default.query === "function") {
+    return annotateDialect(mod.default, dialect);
+  }
+
+  // 3) Well-known singleton names (your current exports)
+  const knownSingletons: Record<CanonicalDialect, string[]> = {
+    pg: ["pgDb", "db"],
+    mysql: ["mysqlDb", "db"],
+    mssql: ["mssqlDb", "db"],
+    oracle: ["oracleDb", "db"],
+    sqlite: ["sqliteDb", "db"],
+  };
+  for (const key of knownSingletons[dialect]) {
+    const val = mod?.[key];
+    if (val && typeof val.query === "function") {
+      return annotateDialect(val, dialect);
+    }
+  }
+
+  // 4) Heuristic: any object with query()
+  for (const key of Object.keys(mod ?? {})) {
+    const val = mod[key];
+    if (val && typeof val === "object" && typeof val.query === "function") {
+      return annotateDialect(val, dialect);
+    }
+  }
+
+  throw new Error(
+    `Provider module for '${dialect}' does not expose a usable DB export. ` +
+      `Expected a factory (newDb/createDb/default()) or a singleton (e.g., ${dialect}Db). ` +
+      `Exports: [${Object.keys(mod ?? {}).join(", ")}]`
+  );
+}
+
+/** Load the provider module for a given canonical dialect. */
+async function loadModule(dialect: CanonicalDialect): Promise<any> {
+  switch (dialect) {
+    case "pg":
+      return import("./providers/postgres.js");
+    case "mysql":
+      return import("./providers/mysql.js");
+    case "mssql":
+      return import("./providers/mssql.js");
+    case "oracle":
+      return import("./providers/oracle.js");
+    case "sqlite":
+    default:
+      return import("./providers/sqlite.js");
+  }
+}
+
+/**
+ * Public API: get a DB instance based on current env.
+ * - Imports provider AFTER env resolution.
+ * - Uses factory if present; otherwise singleton.
+ */
 export async function getDb(): Promise<DB> {
-  const provider = (process.env.DB_PROVIDER ?? "sqlite").toLowerCase();
+  const dialect = resolveDialectFromEnv(process.env);
+  const mod = await loadModule(dialect);
+  const db = materializeDb(mod, dialect);
+  return db as DB;
+}
 
-  if (provider === "pg" || provider === "postgres" || provider === "postgresql") {
-    return (await import("./providers/postgres.js")).pgDb;
-  }
-  if (provider === "mysql" || provider === "mariadb") {
-    return (await import("./providers/mysql.js")).mysqlDb;
-  }
-  if (provider === "mssql" || provider === "sqlserver") {
-    return (await import("./providers/mssql.js")).mssqlDb;
-  }
-  if (provider === "oracle") {
-    return (await import("./providers/oracle.js")).oracleDb;
-  }
-
-  return (await import("./providers/sqlite.js")).sqliteDb; // default for dev
+/** Optional helper (e.g., for X-DB-Dialect header). */
+export function getResolvedDialect(): CanonicalDialect {
+  return resolveDialectFromEnv(process.env);
 }

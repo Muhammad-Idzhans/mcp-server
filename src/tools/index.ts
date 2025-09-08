@@ -1,8 +1,10 @@
-// src/tools/index.ts
-import { runNamedQuery } from "./sql/index.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { DB } from "../db/provider.js";
+import { registerSqlTools } from "./sql/index.js";
 
-/**
- * Export all tool descriptors. The server (stdio.ts) will register them
- * using server.registerTool(...).
- */
-export const tools = [runNamedQuery];
+export function registerAllTools(
+  server: McpServer,
+  options: { db: DB; auditPath?: string }
+) {
+  registerSqlTools(server, options);
+}

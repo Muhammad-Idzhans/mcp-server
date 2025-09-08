@@ -1,34 +1,37 @@
+// src/server/stdio.ts
+import "dotenv/config";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
-import { tools } from "../tools/index.js";
+import { registerSqlTools } from "../tools/sql/index.js";
+import { loadDbRegistryFromYaml } from "../db/registry.js";
 
 async function main() {
-  const server = new McpServer({
-    name: "sql-mcp",
-    version: "0.1.0",
-  });
+  const server = new McpServer({ name: "mcp-sql", version: "0.2.0" });
+  const auditPath = process.env.SQL_AUDIT_LOG;
+  const cfgPath = process.env.SQL_DBS_CONFIG ?? "./dbs.yaml";
 
-  // Register our tools with Zod schemas
-  for (const t of tools) {
-    server.registerTool(
-      t.name,
-      {
-        title: t.config.title,
-        description: t.config.description,
-        inputSchema: t.config.inputSchema as Record<string, z.ZodTypeAny>
-      },
-      t.handler as any
-    );
+  // Build all pools
+  const { registry, closeAll } = await loadDbRegistryFromYaml(cfgPath);
+
+  // Register tools per alias
+  for (const [alias, db] of registry.entries()) {
+    registerSqlTools(server, { db, auditPath, ns: alias });
   }
 
-  // stdio transport: MCP messages via stdin/stdout
   const transport = new StdioServerTransport();
   await server.connect(transport);
+
+  process.on("SIGINT", async () => {
+    await closeAll();
+    process.exit(0);
+  });
+  process.on("SIGTERM", async () => {
+    await closeAll();
+    process.exit(0);
+  });
 }
 
 main().catch((err) => {
-  // IMPORTANT for stdio servers: log to stderr, never stdout
-  console.error("Server error:", err);
+  console.error("[mcp-sql] fatal:", err);
   process.exit(1);
 });

@@ -1,0 +1,35 @@
+databases:
+  - alias: mysql
+    dialect: mysql
+    host: 127.0.0.1
+    port: 3306
+    user: root
+    password: rootpass
+    database: appdb
+
+  - alias: pg
+    dialect: pg
+    host: 127.0.0.1
+    port: 5432
+    user: postgres
+    password: postgres
+    database: appdb
+
+  - alias: mssql
+    dialect: mssql
+    host: 127.0.0.1
+    port: 1433
+    user: sa
+    password: Passw0rd!
+    database: appdb
+    # options: { encrypt: true, trustServerCertificate: true }  # optional, not required
+
+  - alias: oracle
+    dialect: oracle
+    connectString: 127.0.0.1:1521/FREEPDB1
+    user: system
+    password: oracle
+
+  - alias: sqlite
+    dialect: sqlite
+    file: ./sample.db
