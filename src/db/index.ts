@@ -1,5 +1,4 @@
 // Function to get the appropriate database provider based on environment variable
-
 import type { DB } from "./provider.js";
 
 export async function getDb(): Promise<DB> {

@@ -10,7 +10,8 @@
     "start": "node dist/server/stdio.js",
     "db:ping": "tsx dev/ping.ts",
     "db:up": "docker-compose up -d",
-    "db:down": "docker-compose down"
+    "db:down": "docker-compose down",
+    "dev:http": "tsx src/server/http.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.4",
@@ -26,10 +27,15 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^5.0.3",
     "@types/mssql": "^9.1.7",
     "@types/node": "^24.3.0",
     "@types/oracledb": "^6.9.1",
     "@types/pg": "^8.15.5",
+    "and": "^0.0.3",
+    "express": "^5.1.0",
+    "i": "^0.3.7",
+    "npm": "^11.6.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   }

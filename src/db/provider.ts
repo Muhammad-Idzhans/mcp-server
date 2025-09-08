@@ -1,5 +1,3 @@
-
-
 export type Dialect = "sqlite" | "pg" | "mysql" | "mssql" | "oracle";
 
 export interface DB {
