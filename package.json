@@ -7,7 +7,7 @@
     "dev:server": "tsx src/server/stdio.ts",
     "dev:client": "tsx src/client/devClient.ts",
     "build": "tsc",
-    "start": "node dist/server/stdio.js",
+    "start": "node dist/server/http.js",
     "db:ping": "tsx dev/ping.ts",
     "db:up": "docker-compose up -d",
     "db:down": "docker-compose down",
