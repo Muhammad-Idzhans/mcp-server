@@ -46,16 +46,18 @@ ___
 #### **1) POSTGRESQL DATABASE (Library System)**
 
 **TABLE NAME:** `books`
-| book\_id | title                   | author      | genre     | year\_published |
-| -------- | ----------------------- | ----------- | --------- | --------------- |
-| 1        | The Silent Forest       | John Rivers | Fiction   | 2015            |
-| 2        | Data Science Simplified | Alice Tan   | Education | 2020            |
+| book\_id | title                          | author      | genre     | year\_published |
+| -------- | -----------------------        | ----------- | --------- | --------------- |
+| 1        | The Silent Forest              | John Rivers | Fiction   | 2015            |
+| 2        | Data Science Simplified        | Alice Tan   | Education | 2020            |
+| 2        | Demon Slayer: Kimetsu no Yaiba | Koyoharu Gotouge   | Fiction | 2016            |
 
 **TABLE NAME:** `members`
 | member\_id | name       | email                                                   | join\_date | active |
 | ---------- | ---------- | ------------------------------------------------------- | ---------- | ------ |
 | 101        | Sarah Lim  | [sarah@example.com](mailto:sarah@example.com)           | 2021-03-10 | true   |
 | 102        | Ahmad Zaki | [ahmad.zaki@example.com](mailto:ahmad.zaki@example.com) | 2022-07-22 | false  |
+| 103        | Megan Raaj | [megan.raaj@example.com](mailto:megan.raaj@example.com) | 2025-09-10 | false  |
 
 Testing Using Postman to retrieve information:
 ```json
@@ -87,12 +89,14 @@ ___
 | ----------- | ------------- | ----------- | ------- | ----- |
 | 501         | Laptop X100   | Electronics | 3500.00 | 15    |
 | 502         | Running Shoes | Sports      | 280.00  | 50    |
+| 503         |  Office Table | Furniture   | 200.00  | 10    |
 
 **TABLE NAME:** `orders`
 | order\_id | product\_id | customer\_name | quantity | order\_date |
 | --------- | ----------- | -------------- | -------- | ----------- |
 | 9001      | 501         | Daniel Wong    | 1        | 2024-12-15  |
 | 9002      | 502         | Mei Li         | 2        | 2025-01-20  |
+| 9003      | 503         | Syahid Akbar   | 2        | 2025-09-10  |
 
 Testing Using Postman to retrieve information:
 ```json
@@ -124,12 +128,14 @@ ___
 | ----------- | ------------ | ---------- | ----------- | ---------- |
 | P001        | Kevin Smith  | 1990-05-21 | O+          | 2025-02-01 |
 | P002        | Aisha Rahman | 1985-11-03 | A-          | 2025-02-07 |
+| P003        | Ariff Hafizal| 2001-08-06 | AB          | 2025-09-01 |
 
 **TABLE NAME:** `doctors`
-| patient\_id | full\_name   | dob        | blood\_type | admitted   |
-| ----------- | ------------ | ---------- | ----------- | ---------- |
-| P001        | Kevin Smith  | 1990-05-21 | O+          | 2025-02-01 |
-| P002        | Aisha Rahman | 1985-11-03 | A-          | 2025-02-07 |
+| doctor\_id | name           | specialty  | phone        | available |
+| ---------- | -------------  | ---------- | -----------  | --------- |
+| D001       | Dr. Michael    | Cardiology | 012-3456789  | Yes       |
+| D002       | Dr. Nur Farah  | Pediatrics | 019-8765432  | No        |
+| D003       | Dr. Abd. Rahman| Surgeon    | 011-78150955 | Yes       |
 
 Testing Using Postman to retrieve information:
 ```json
