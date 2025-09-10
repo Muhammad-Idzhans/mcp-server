@@ -8,10 +8,14 @@
     "dev:client": "tsx src/client/devClient.ts",
     "build": "tsc",
     "start": "node dist/server/http.js",
+    "postinstall": "npm run build",
     "db:ping": "tsx dev/ping.ts",
     "db:up": "docker-compose up -d",
     "db:down": "docker-compose down",
     "dev:http": "tsx src/server/http.ts"
+  },
+  "engines": {
+    "node": ">=20 <21"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.4",
@@ -30,7 +34,7 @@
     "@types/express": "^5.0.3",
     "@types/js-yaml": "^4.0.9",
     "@types/mssql": "^9.1.7",
-    "@types/node": "^24.3.0",
+    "@types/node": "^24.3.1",
     "@types/oracledb": "^6.9.1",
     "@types/pg": "^8.15.5",
     "and": "^0.0.3",

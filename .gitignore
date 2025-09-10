@@ -8,3 +8,13 @@ dist
 
 # Env
 .env
+
+# Other files
+mcp-server.zip
+nvm-setup.exe
+artifact.zip
+artifact-src.zip
+
+# Other folders
+srcpkg
+release

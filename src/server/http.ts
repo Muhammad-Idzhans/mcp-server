@@ -10,6 +10,7 @@ import type { DB } from "../db/provider.js";
 const app = express();
 app.use(express.json());
 
+// const PORT = Number(process.env.PORT ?? 8787);
 const PORT = Number(process.env.PORT ?? 8787);
 
 type Row = Record<string, any>;
