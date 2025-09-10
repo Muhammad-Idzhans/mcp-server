@@ -7,7 +7,7 @@
 ## API Endpoints
 After you deploying the MCP Server on the website, you will be getting a particular link. With that link, you be able to access some information through the endpoints that is specified.
 
-### 1. SQL Tools for different databases (Postgres, MySQL, SQL, Oracle):
+### 1. SQL Tools for different databases (Postgres, MySQL, SQL, Oracle): 
 | Method | Endpoint       | Description                                |
 |--------|----------------|--------------------------------------------|
 | GET    | /dbs           | Lists all configured databases.            |

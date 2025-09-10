@@ -257,3 +257,11 @@ Null-safe filter
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+
+
+
+
+
+NOTES:
+- When we deploy, we just need to define the database secret in the platform environment.

@@ -1,79 +1,137 @@
-databases:
-  # Local MySQL
-  # - alias: mysql
-  #   dialect: mysql
-  #   host: 127.0.0.1
-  #   port: 3306
-  #   user: root
-  #   password: rootpass
-  #   database: appdb
+#------------------------------------------------------------
+#            Local Database (Docker & Local)
+#------------------------------------------------------------
+# databases:
+#   # Local MySQL
+#   - alias: mysql
+#     dialect: mysql
+#     host: 127.0.0.1
+#     port: 3306
+#     user: root
+#     password: rootpass
+#     database: appdb
+
+#   # Local PostgreSQL
+#   - alias: pg
+#     dialect: pg
+#     host: 127.0.0.1
+#     port: 5432
+#     user: postgres
+#     password: postgres
+#     database: appdb
+
+#   # Local SQL Server
+#   - alias: mssql
+#     dialect: mssql
+#     host: 127.0.0.1
+#     port: 1433
+#     user: sa
+#     password: Passw0rd!
+#     database: appdb
+
+#   # Local Oracle 1
+#   - alias: oracle
+#     dialect: oracle
+#     connectString: 127.0.0.1:1521/FREEPDB1
+#     user: system
+#     password: oracle
   
+#   # Local Oracle 2
+#   - alias: oracle
+#     dialect: oracle
+#     connectString: 127.0.0.1:1521/XEPDB1
+#     user: hansmcp
+#     password: McpPass123!
+
+
+
+
+
+#------------------------------------------------------------
+#                     Cloud Database
+#------------------------------------------------------------
+# databases:  
+#   # Railway MySQL
+#   - alias: mysql
+#     dialect: mysql
+#     host: centerbeam.proxy.rlwy.net
+#     port: 12498
+#     user: root
+#     password: RnixIwnmfxUXTLOCZVCDnrFQynOTrJHy
+#     database: railway
+
+#   # Railway PostgreSQL
+#   - alias: pg
+#     dialect: pg
+#     host: shuttle.proxy.rlwy.net
+#     port: 55537
+#     user: postgres
+#     password: rlvWYBJaqwEDrSqJxWbiOKBoYSXmIwqi
+#     database: railway
+  
+#   # Azure SQL Server
+#   - alias: mssql
+#     dialect: mssql
+#     host: hans-server.database.windows.net
+#     port: 1433
+#     user: IdzhansKhairi
+#     password: iloveEnfrasys@123
+#     database: mssql-mcp
+
+#   # Cloud Oracle - Docker to the Azure Container
+#   - alias: oracle
+#     dialect: oracle
+#     connectString: 20.212.103.217:1521/XEPDB1
+#     user: hansmcp
+#     password: McpPass123!
+
+#   # Local SQLite
+#   - alias: sqlite
+#     dialect: sqlite
+#     file: ./sample.db
+
+
+
+
+
+#----------------------------------------------------------------------------
+# Cloud Database (With no direct values - Values from ENV VARS)
+#----------------------------------------------------------------------------
+databases:  
   # Railway MySQL
   - alias: mysql
     dialect: mysql
-    host: centerbeam.proxy.rlwy.net
-    port: 12498
-    user: root
-    password: RnixIwnmfxUXTLOCZVCDnrFQynOTrJHy
-    database: railway
-
-  # Local PostgreSQL
-  # - alias: pg
-  #   dialect: pg
-  #   host: 127.0.0.1
-  #   port: 5432
-  #   user: postgres
-  #   password: postgres
-  #   database: appdb
+    host: ${MYSQL_HOST}
+    port: ${MYSQL_PORT:12498}
+    user: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+    database: ${MYSQL_DB}
 
   # Railway PostgreSQL
   - alias: pg
     dialect: pg
-    host: shuttle.proxy.rlwy.net
-    port: 55537
-    user: postgres
-    password: rlvWYBJaqwEDrSqJxWbiOKBoYSXmIwqi
-    database: railway
-
-  # Local SQL Server
-  # - alias: mssql
-  #   dialect: mssql
-  #   host: 127.0.0.1
-  #   port: 1433
-  #   user: sa
-  #   password: Passw0rd!
-  #   database: appdb
+    host: ${PG_HOST}
+    port: ${PG_PORT:55537}
+    user: ${PG_USER}
+    password: ${PG_PASSWORD}
+    database: ${PG_DB}
   
   # Azure SQL Server
   - alias: mssql
     dialect: mssql
-    host: hans-server.database.windows.net
-    port: 1433
-    user: IdzhansKhairi
-    password: iloveEnfrasys@123
-    database: mssql-mcp
-
-  # Local Oracle 1
-  # - alias: oracle
-  #   dialect: oracle
-  #   connectString: 127.0.0.1:1521/FREEPDB1
-  #   user: system
-  #   password: oracle
-  
-  # Local Oracle 2
-  # - alias: oracle
-  #   dialect: oracle
-  #   connectString: 127.0.0.1:1521/XEPDB1
-  #   user: hansmcp
-  #   password: McpPass123!
+    host: ${MSSQL_HOST}
+    port: ${MSSQL_PORT:1433}
+    user: ${MSSQL_USER}
+    password: ${MSSQL_PASSWORD}
+    database: ${MSSQL_DB}
 
   # Cloud Oracle - Docker to the Azure Container
   - alias: oracle
     dialect: oracle
-    connectString: 20.212.103.217:1521/XEPDB1
-    user: hansmcp
-    password: McpPass123!
-
+    connectString: ${ORACLE_CONNECT_STRING}
+    user: ${ORACLE_USER}
+    password: ${ORACLE_PASSWORD}
+  
   # Local SQLite
   - alias: sqlite
     dialect: sqlite
