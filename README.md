@@ -7,6 +7,10 @@
 ## SQL tools for different databases (Postgres, MySQL, SQL, Oracle)
 After you deploying the MCP Server on the website, you will get a particular link called _**Base URL**_. With that link, you be able to access some information through the endpoints that is specified. If your Base URL such as `http://localhost:8787`, then you can use the endpoints as `http://localhost:8787/health`. You can test the endpoints using **_Postman_** as well.
 
+This MCP Server does not manage multiple databases of the same type. Instead, it provides connectivity to multiple database system (Postgres, MySQL, MSSQL, Oracle). Each system is configured independently via environment variables, and queries are executed againts the selected DB. 
+
+**Note:** We can extend the current MCP Server to support not only multiple database types but also multiple instances of the same database type if needed.
+
 Below are the endpoints under the SQL Tools:
 | Method | Endpoint       | Description                                |
 |--------|----------------|--------------------------------------------|
