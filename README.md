@@ -199,4 +199,36 @@ Testing Using Postman to retrieve information:
 ___
 
 
+### Database Environments
+The MCP Server uses environment variables for database connections.
+  - Not all environments are required.
+  - If an environment for a database type is missing, the server will still run (It can be used for all database or just use for your desired database).
+  - This project do supports SQLite but it will not be focused on since SQLite is usually for the local testing.
+
+
+
+| Variable                | Usage / Description                                            | Example Value           |
+| ----------------------- | -------------------------------------------------------------- | ----------------------- |
+| `MYSQL_HOST`            | Hostname or IP address of the MySQL server                     | `127.0.0.1`             |
+| `MYSQL_PORT`            | Port number for the MySQL server (default: `3306`)             | `3306`                  |
+| `MYSQL_USER`            | Username to authenticate with the MySQL server                 | `root`                  |
+| `MYSQL_PASSWORD`        | Password for the MySQL user                                    | `mypassword`            |
+| `MYSQL_DB`              | Name of the MySQL database to connect to                       | `test_db`               |
+| `PG_HOST`               | Hostname or IP address of the PostgreSQL server                | `127.0.0.1`             |
+| `PG_PORT`               | Port number for the PostgreSQL server (default: `5432`)        | `5432`                  |
+| `PG_USER`               | Username to authenticate with the PostgreSQL server            | `postgres`              |
+| `PG_PASSWORD`           | Password for the PostgreSQL user                               | `secret123`             |
+| `PG_DB`                 | Name of the PostgreSQL database to connect to                  | `sampledb`              |
+| `MSSQL_HOST`            | Hostname or IP address of the Microsoft SQL Server             | `127.0.0.1`             |
+| `MSSQL_PORT`            | Port number for the Microsoft SQL Server (default: `1433`)     | `1433`                  |
+| `MSSQL_USER`            | Username to authenticate with the Microsoft SQL Server         | `sa`                    |
+| `MSSQL_PASSWORD`        | Password for the Microsoft SQL Server user                     | `P@ssw0rd!`             |
+| `MSSQL_DB`              | Name of the Microsoft SQL Server database to connect to        | `hospital_db`           |
+| `ORACLE_CONNECT_STRING` | Oracle EZConnect string in the format `host:port/service_name` | `127.0.0.1:1521/XEPDB1` |
+| `ORACLE_USER`           | Username to authenticate with the Oracle database              | `system`                |
+| `ORACLE_PASSWORD`       | Password for the Oracle user                                   | `oracle123`             |
+
+
+
+
 
