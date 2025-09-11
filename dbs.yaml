@@ -132,7 +132,7 @@ databases:
     user: ${ORACLE_USER}
     password: ${ORACLE_PASSWORD}
   
-  # Local SQLite
-  - alias: sqlite
-    dialect: sqlite
-    file: ./sample.db
+  # # Local SQLite
+  # - alias: sqlite
+  #   dialect: sqlite
+  #   file: ./sample.db

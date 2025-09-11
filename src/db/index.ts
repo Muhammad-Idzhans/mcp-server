@@ -10,7 +10,7 @@
 
 import type { DB } from "./provider.js";
 
-type CanonicalDialect = "pg" | "mysql" | "mssql" | "oracle" | "sqlite";
+type CanonicalDialect = "pg" | "mysql" | "mssql" | "oracle";
 
 const DIALECT_SYNONYMS: Record<string, CanonicalDialect> = {
   // Postgres
@@ -34,10 +34,6 @@ const DIALECT_SYNONYMS: Record<string, CanonicalDialect> = {
   oracle: "oracle",
   oracledb: "oracle",
   oci: "oracle",
-
-  // SQLite
-  sqlite: "sqlite",
-  sqlite3: "sqlite",
 };
 
 function canonicalizeDialect(input?: string | null): CanonicalDialect | undefined {
@@ -49,17 +45,13 @@ function canonicalizeDialect(input?: string | null): CanonicalDialect | undefine
 function dialectFromDatabaseUrl(url?: string): CanonicalDialect | undefined {
   if (!url) return undefined;
 
-  if (url.startsWith("sqlite:") || url.startsWith("file:") || url.includes("sqlite::memory:")) {
-    return "sqlite";
-  }
-
   try {
     const u = new URL(url);
     const proto = u.protocol.replace(":", "").toLowerCase();
-    if (proto === "file") return "sqlite";
+    // Map only to supported dialects via synonyms (pg/mysql/mssql/oracle)
     return DIALECT_SYNONYMS[proto];
   } catch {
-    if (/\bsqlite\b/i.test(url) || /\.sqlite3?$/i.test(url)) return "sqlite";
+    // Non-URL strings (JDBC-ish, etc.) - we no longer guess "sqlite"; return undefined
     return undefined;
   }
 }
@@ -74,7 +66,10 @@ function resolveDialectFromEnv(env = process.env): CanonicalDialect {
   const fromUrl = dialectFromDatabaseUrl(env.DATABASE_URL);
   if (fromUrl) return fromUrl;
 
-  return "sqlite"; // default
+  throw new Error(
+    "Unable to resolve DB dialect from env. " +
+    "Please set DB_PROVIDER/DB_DIALECT/DATABASE_URL for a supported dialect (pg/mysql/mssql/oracle)."
+  )
 }
 
 /** Attach canonical dialect hint on the db object. */
@@ -117,7 +112,6 @@ function materializeDb(mod: any, dialect: CanonicalDialect): DB {
     mysql: ["mysqlDb", "db"],
     mssql: ["mssqlDb", "db"],
     oracle: ["oracleDb", "db"],
-    sqlite: ["sqliteDb", "db"],
   };
   for (const key of knownSingletons[dialect]) {
     const val = mod?.[key];
@@ -152,9 +146,10 @@ async function loadModule(dialect: CanonicalDialect): Promise<any> {
       return import("./providers/mssql.js");
     case "oracle":
       return import("./providers/oracle.js");
-    case "sqlite":
     default:
-      return import("./providers/sqlite.js");
+      // This should be unreachable due to the CanonicalDialect union,
+      // but we keep a defensive guard for future edits.
+      throw new Error(`Unsupported dialect: ${dialect}`);
   }
 }
 
