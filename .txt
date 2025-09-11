@@ -265,3 +265,21 @@ Null-safe filter
 
 NOTES:
 - When we deploy, we just need to define the database secret in the platform environment.
+
+
+
+
+
+What’s the difference between your STDIO and HTTP today?
+A) src/server/stdio.ts — MCP server (real MCP) over STDIO
+- Creates an McpServer and registers your SQL tools (one namespace per DB alias).
+- Uses STDIO transport (the MCP client launches the server as a subprocess and exchanges JSON‑RPC over stdin/stdout).
+- This is a real MCP server—MCP clients can discover tools with tools/list and invoke them with tools/call.
+- STDIO is a standard transport in MCP, alongside Streamable HTTP.
+
+B) src/server/http.ts — Custom REST API (not MCP)
+- Starts an Express server with routes like:
+- GET /dbs (list aliases),
+- POST /sql/query (executes SQL under an alias, read‑only by default).
+- It does not implement MCP methods (tools/list, tools/call), so Copilot Studio or MCP clients can’t auto‑discover your tools from it. It’s just regular REST you can test in Postman.
+- MCP is a protocol (JSON‑RPC schema + transports) for agents to list+invoke tools in a standard way; REST routes like /sql/query are outside that protocol.

@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { registerSqlTools } from "../tools/sql/index.js";
 import { loadDbRegistryFromYaml } from "../db/registry.js";
+import { registerSerperWebSearch } from "../tools/websearch/serper.js";
 
 async function main() {
   const server = new McpServer({ name: "mcp-sql", version: "0.2.0" });
@@ -17,6 +18,8 @@ async function main() {
   for (const [alias, db] of registry.entries()) {
     registerSqlTools(server, { db, auditPath, ns: alias });
   }
+  // Register Web Search Tool
+  registerSerperWebSearch(server);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
