@@ -233,66 +233,82 @@ The MCP Server uses environment variables for database connections.
 | `ORACLE_PASSWORD`       | Password for the Oracle user                                   | `oracle123`             |
 
 
-### Deployment to Azure
-Delete the existing node_modules and installs dependencies exactly as listed in your package-lock.json (ci = clean install)
-```
+### Deployment to Azure Web App
+Delete the existing node_modules and installs dependencies exactly as listed in your `package-lock.json` _**(ci = clean install)**_:
+```cmd
 npm ci
 ```
 
-Runs the build script in your package.json under "scripts".
-```
+Runs the build script in your package.json under "scripts":
+```cmd
 npm run build
 ```
 
-
-
-```json
-// Delete the existing node_modules and installs dependencies exactly as listed in your package-lock.json (ci = clean install)
+Delete the existing node_modules and installs dependencies exactly as listed in your package-lock.json (ci = clean install):
+```cmd
 npm ci
-
-// Runs the build script in your package.json under "scripts".
+```
+Runs the build script in your package.json under "scripts":
+```cmd
 npm run build
+```
 
-// Remove of the directory if exist
+Remove of the directory if exist:
+```cmd
 if exist srcpkg rmdir /s /q srcpkg
+```
 
-// Make directory to be zipped
+Make directory to be zipped:
+```cmd
 mkdir srcpkg
+```
 
-// Copy project sources and assets Oryx needs
+Copy project sources and assets Oryx needs. If you read any templates at runtime, include them too. **DO NOT** copy `node_modules` _**(Oryx will install on Linux)**_:
+```cmd
 xcopy src srcpkg\src\ /E /I /Y
 copy package.json srcpkg\
 copy package-lock.json srcpkg\ >NUL 2>&1
 copy tsconfig.json srcpkg\ >NUL 2>&1
 copy dbs.yaml srcpkg\ >NUL 2>&1
-
-// If you read any templates at runtime, include them too:
-// DO NOT copy node_modules (Oryx will install on Linux)
 if exist src\tools\sql\templates xcopy src\tools\sql\templates srcpkg\src\tools\sql\templates\ /E /I /Y
+```
 
-// Build a ZIP whose root is the content (not a nested folder)
+Build a ZIP whose root is the content _**(not a nested folder)**_:
+```cmd
 if exist artifact-src.zip del /f /q artifact-src.zip
 tar -a -c -f artifact-src.zip -C srcpkg .
-
-// Azure Login
-az login
-
-// Set runtime to Node 20 LTS
-az webapp config set -g <resource-group> -n <web-app-name> --linux-fx-version "NODE|20-lts"
-
-// Enable build automation (Oryx)
-az webapp config appsettings set -g <resource-group> -n <web-app-name> --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true NPM_CONFIG_PRODUCTION=false
-
-
-// Deploy to Azure
-az webapp deploy -g <resource-group> -n <web-app-name> --src-path artifact-src.zip
-
-// Enable Logs and Monitor to view
-az webapp log config -g <resource-group> -n <web-app-name> --application-logging filesystem --docker-container-logging filesystem --level information
-az webapp log tail -g <resource-group> -n <web-app-name>
-
-// Find the outbound IP - to put in the SQL Server if your server is inside Azure
-az webapp show -g <resource-group> -n <web-app-name> --query outboundIpAddresses -o tsv
-
 ```
+
+Azure Login:
+```cmd
+az login
+```
+
+Set runtime to Node 20 LTS:
+```cmd
+az webapp config set -g <resource-group> -n <web-app-name> --linux-fx-version "NODE|20-lts"
+```
+
+Enable build automation _**(Oryx)**_:
+```cmd
+az webapp config appsettings set -g <resource-group> -n <web-app-name> --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true NPM_CONFIG_PRODUCTION=false
+```
+
+Deploy to Azure:
+```cmd
+az webapp deploy -g <resource-group> -n <web-app-name> --src-path artifact-src.zip
+```
+
+Enable Logs and Monitor to view _**(In another cmd)**_:
+```cmd
+az webapp log config -g <resource-group> -n <web-app-name> --application-logging filesystem --docker-container-logging filesystem --level information
+
+az webapp log tail -g <resource-group> -n <web-app-name>
+```
+
+Find the outbound IP - to put in the SQL Server if your server is inside Azure
+```cmd
+az webapp show -g <resource-group> -n <web-app-name> --query outboundIpAddresses -o tsv
+```
+
 
