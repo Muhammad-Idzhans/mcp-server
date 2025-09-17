@@ -6,11 +6,40 @@ import { mapNamedToDriver } from "../../db/paramMap.js";
 import { sqlGuardrails } from "./templates.js"; // fixed: template.js (singular)
 import { excludedOracleTables } from "./unwantedOracle.js";
 
+
+const __aliases = new Set<string>();
+let __dbListRegistered = false;
+
+
 export function registerSqlTools(
   server: McpServer,
   { db, auditPath, ns }: { db: DB; auditPath?: string; ns?: string }
 ) {
   const name = (base: string) => (ns ? `${ns}.${base}` : base);
+  // collect the alias for db.list to return later
+  if (ns) __aliases.add(ns);
+
+  // Add: register the global (non-namespaced) db.list tool once
+  if (!__dbListRegistered) {
+    __dbListRegistered = true;
+
+    server.registerTool(
+      "db.list",
+      {
+        title: "List database aliases",
+        description:
+          "Return the list of available database aliases on this server (e.g., mysql, mssql, pg, oracle). " +
+          "Call this first to discover which DBs you can query.",
+        // IMPORTANT: registerTool expects a ZodRawShape (plain object), so use {} not z.object({})
+        inputSchema: {},
+      },
+      async () => {
+        const aliases = Array.from(__aliases).sort();
+        // MCP tools return content blocks; 'text' is the most compatible form
+        return { content: [{ type: "text", text: JSON.stringify(aliases, null, 2) }] };
+      }
+    );
+  }
 
   async function audit(line: string) {
     if (!auditPath) return;

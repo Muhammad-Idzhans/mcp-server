@@ -16,64 +16,67 @@ async function main() {
   const client = new Client({ name: "dev-client", version: "0.1.0" });
   await client.connect(transport);
 
-  // === tools/list (must pass result schema) ===
-  const tools = await client.request(
+  // === tools/list ===
+  const toolsResp = await client.request(
     { method: "tools/list", params: {} },
     ListToolsResultSchema
   );
-  console.log("Available tools:", tools.tools.map(t => t.name));
+  const toolNames = toolsResp.tools.map(t => t.name);
+  console.log("Available tools:", toolNames);
 
-  // === tools/call: sql.schema ===
+  // --- NEW: auto-detect alias (optionally honoring DEV_DB_ALIAS)
+  const preferred = process.env.DEV_DB_ALIAS?.trim();
+  const alias = pickAlias(toolNames, preferred);
+  if (!alias) {
+    throw new Error(
+      "No namespaced SQL tools found (expected '<alias>.sql.schema'). " +
+      "Check your dbs.yaml and environment."
+    );
+  }
+  console.log("Using DB alias:", alias, preferred ? `(preferred=${preferred})` : "");
+
+  // === tools/call: <alias>.sql.schema ===
   const schemaRes = await client.request(
     {
       method: "tools/call",
       params: {
-        name: "sql.schema",
+        name: `${alias}.sql.schema`,
         arguments: {},
       },
     },
     CallToolResultSchema
   );
-  // CallToolResultSchema returns the result directly, not { result: ... }
   console.log(
     "\n=== sql.schema ===\n",
     schemaRes.content?.[0]?.type === "text" ? schemaRes.content[0].text : schemaRes
   );
 
-  // === tools/call: sql.peek ===
+  // === tools/call: <alias>.sql.peek ===
   const peekRes = await client.request(
     {
       method: "tools/call",
       params: {
-        name: "sql.peek",
+        name: `${alias}.sql.peek`,
         arguments: {
-          maxRowsPerTable: 50,   // change if needed
-          as: "json",        // or "json"
+          maxRowsPerTable: 50,   // adjust if needed
+          as: "json",
         },
       },
     },
     CallToolResultSchema
   );
-
   console.log(
     "\n=== sql.peek ===\n",
     peekRes.content?.[0]?.type === "text" ? peekRes.content[0].text : JSON.stringify(peekRes, null, 2)
   );
 
-  // === tools/call: sql.query ===
+  // === tools/call: <alias>.sql.query ===
   const sample = detectSampleQuery();
-
-  // Edit thissample query with something real from your DB below here:
-  // const sample = {
-  //   text: "SELECT id, name FROM users WHERE created_at >= :since LIMIT :n",
-  //   params: { since: "2025-01-01", n: 10 }
-  // };
-
   const queryRes = await client.request(
     {
       method: "tools/call",
       params: {
-        name: "sql.query",
+        name: `${alias}.sql.query`,
         arguments: {
           sql: sample.text,
           params: sample.params,
@@ -91,6 +94,21 @@ async function main() {
   );
 
   await client.close();
+}
+
+// --- NEW: helper to pick a valid alias from tools/list (with optional preferred)
+function pickAlias(names: string[], preferred?: string | null): string | null {
+  const aliases = Array.from(new Set(names.map(n => n.split(".")[0])));
+  const hasSchema = (a: string) => names.includes(`${a}.sql.schema`);
+
+  if (preferred && aliases.includes(preferred) && hasSchema(preferred)) {
+    return preferred;
+  }
+  const first = aliases.find(hasSchema) ?? null;
+  if (!first) {
+    console.warn("No alias exposes '.sql.schema'. Found aliases:", aliases);
+  }
+  return first;
 }
 
 function detectSampleQuery() {

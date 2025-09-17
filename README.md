@@ -233,6 +233,66 @@ The MCP Server uses environment variables for database connections.
 | `ORACLE_PASSWORD`       | Password for the Oracle user                                   | `oracle123`             |
 
 
+### Deployment to Azure
+Delete the existing node_modules and installs dependencies exactly as listed in your package-lock.json (ci = clean install)
+```
+npm ci
+```
+
+Runs the build script in your package.json under "scripts".
+```
+npm run build
+```
 
 
+
+```json
+// Delete the existing node_modules and installs dependencies exactly as listed in your package-lock.json (ci = clean install)
+npm ci
+
+// Runs the build script in your package.json under "scripts".
+npm run build
+
+// Remove of the directory if exist
+if exist srcpkg rmdir /s /q srcpkg
+
+// Make directory to be zipped
+mkdir srcpkg
+
+// Copy project sources and assets Oryx needs
+xcopy src srcpkg\src\ /E /I /Y
+copy package.json srcpkg\
+copy package-lock.json srcpkg\ >NUL 2>&1
+copy tsconfig.json srcpkg\ >NUL 2>&1
+copy dbs.yaml srcpkg\ >NUL 2>&1
+
+// If you read any templates at runtime, include them too:
+// DO NOT copy node_modules (Oryx will install on Linux)
+if exist src\tools\sql\templates xcopy src\tools\sql\templates srcpkg\src\tools\sql\templates\ /E /I /Y
+
+// Build a ZIP whose root is the content (not a nested folder)
+if exist artifact-src.zip del /f /q artifact-src.zip
+tar -a -c -f artifact-src.zip -C srcpkg .
+
+// Azure Login
+az login
+
+// Set runtime to Node 20 LTS
+az webapp config set -g <resource-group> -n <web-app-name> --linux-fx-version "NODE|20-lts"
+
+// Enable build automation (Oryx)
+az webapp config appsettings set -g <resource-group> -n <web-app-name> --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true NPM_CONFIG_PRODUCTION=false
+
+
+// Deploy to Azure
+az webapp deploy -g <resource-group> -n <web-app-name> --src-path artifact-src.zip
+
+// Enable Logs and Monitor to view
+az webapp log config -g <resource-group> -n <web-app-name> --application-logging filesystem --docker-container-logging filesystem --level information
+az webapp log tail -g <resource-group> -n <web-app-name>
+
+// Find the outbound IP - to put in the SQL Server if your server is inside Azure
+az webapp show -g <resource-group> -n <web-app-name> --query outboundIpAddresses -o tsv
+
+```
 

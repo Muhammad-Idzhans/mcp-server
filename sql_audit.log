@@ -1,0 +1,13 @@
+[2025-09-11T07:21:22.317Z] mysql rows=1 ms=15 sql=SELECT 1 AS one
+[2025-09-11T07:25:27.654Z] mysql rows=1 ms=17 sql=SELECT 1 AS one
+[2025-09-11T07:53:54.677Z] mysql rows=1 ms=13 sql=SELECT 1 AS one
+[2025-09-12T02:36:35.140Z] mysql rows=3 ms=756 sql=SELECT * FROM orders LIMIT 10;
+[2025-09-12T02:42:25.038Z] mysql rows=3 ms=19 sql=SELECT * FROM orders LIMIT 10;
+[2025-09-12T02:56:00.505Z] pg rows=3 ms=241 sql=SELECT * FROM members LIMIT 10;
+[2025-09-12T02:57:06.144Z] mysql rows=3 ms=18 sql=SELECT * FROM orders LIMIT 10;
+[2025-09-12T02:57:30.392Z] mssql rows=3 ms=14 sql=SELECT TOP 10 * FROM Doctors;
+[2025-09-12T02:57:41.032Z] oracle rows=3 ms=178 sql=SELECT * FROM COURSES
+[2025-09-12T03:01:52.021Z] mysql rows=3 ms=277 sql=SELECT * FROM orders LIMIT 10;
+[2025-09-12T03:04:03.522Z] pg rows=3 ms=270 sql=SELECT * FROM members LIMIT 10;
+[2025-09-12T09:01:11.990Z] pg rows=3 ms=261 sql=SELECT * FROM members LIMIT 10;
+[2025-09-12T09:01:22.377Z] mysql rows=3 ms=730 sql=SELECT * FROM orders LIMIT 10;
