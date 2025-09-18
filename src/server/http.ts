@@ -5,6 +5,7 @@ import type { Request, Response } from "express";
 import { loadDbRegistryFromYaml } from "../db/registry.js";
 import { mapNamedToDriver } from "../db/paramMap.js";
 import type { DB } from "../db/provider.js";
+import type { DbAliasMeta } from "../db/registry.js";
 
 // MCP additions
 import { randomUUID } from "node:crypto";
@@ -22,47 +23,91 @@ app.use(express.json());
 const PORT = Number(process.env.PORT ?? 8787);
 
 type Row = Record<string, any>;
-let registry: Map<string, DB>;
-let closeAll: () => Promise<void>;
+let registry: Map<string, DB> = new Map();
+let meta: Map<string, DbAliasMeta> = new Map();
+let closeAll: () => Promise<void> = async () => {};
 
 // health
 app.get("/health", (_req: Request, res: Response) => {
   res.status(200).send("ok");
 });
 
-// list DB aliases
-app.get("/dbs", (_req: Request, res: Response) => {
-  const aliases = Array.from(registry?.keys?.() ?? []);
-  res.json(aliases);
+// List DB names (unique, sorted)
+app.get("/dbs", (_req, res) => {
+  const names = Array.from(
+    new Set(Array.from(meta.values()).map(m => m.databaseName).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b));
+  res.json(names);
+});
+
+// List all DB types available
+app.get("/dbs/types", (_req, res) => {
+  const types = Array.from(
+    new Set(Array.from(meta.values()).map(m => m.dialect))
+  ).sort();
+  res.json(types);
+});
+
+// List all DB aliases (exact alias keys)
+app.get("/dbs/aliases", (_req, res) => {
+  res.json(Array.from(registry.keys()).sort());
+});
+
+// List all DB names, grouped by type
+app.get("/dbs/list-by-type", (_req, res) => {
+  const grouped: Record<string, string[]> = {};
+  for (const info of meta.values()) {
+    (grouped[info.dialect] ??= []).push(info.databaseName);
+  }
+  for (const t of Object.keys(grouped)) {
+    grouped[t] = Array.from(new Set(grouped[t])).sort((a, b) => a.localeCompare(b));
+  }
+  res.json(grouped);
 });
 
 // POST /sql/query
-app.post("/sql/query", async (req: Request, res: Response) => {
+app.post("/sql/query", async (req, res) => {
   try {
     const {
-      db: alias,
+      db: nameOrAlias,
+      type,                      // NEW: optional dialect to disambiguate by name
       sql,
       params = {},
       readOnly = true,
       rowLimit = 1000,
-    }: {
-      db?: unknown;
-      sql?: unknown;
-      params?: Record<string, any>;
-      readOnly?: boolean;
-      rowLimit?: number;
     } = req.body ?? {};
 
-    if (typeof alias !== "string" || !alias) {
-      return res.status(400).json({ error: "Body 'db' is required (e.g., 'mssql')." });
+    if (typeof nameOrAlias !== "string" || !nameOrAlias.trim()) {
+      return res.status(400).json({ error: "Body 'db' is required (alias or database name)." });
     }
     if (typeof sql !== "string" || !sql.trim()) {
       return res.status(400).json({ error: "Body 'sql' is required." });
     }
-    const db = registry.get(alias);
+
+    // 1) Try as alias
+    let db = registry.get(nameOrAlias);
+    // 2) If not an alias, try resolve as database NAME
     if (!db) {
-      return res.status(404).json({ error: `Unknown db alias: ${alias}` });
+      const dialect = typeof type === "string" && type ? String(type).trim() : undefined;
+      const matches = Array.from(meta.entries())
+        .filter(([_, m]) => m.databaseName === nameOrAlias && (!dialect || m.dialect === dialect));
+
+      if (matches.length === 0) {
+        return res.status(404).json({
+          error: `Unknown db alias or database name: '${nameOrAlias}'${dialect ? ` (type=${dialect})` : ""}`,
+        });
+      }
+      if (matches.length > 1) {
+        const hint = matches.map(([a, m]) => `${a} (${m.dialect})`).join(", ");
+        return res.status(400).json({
+          error: `Ambiguous database name '${nameOrAlias}'. Provide 'type' (mysql|pg|mssql|oracle|sqlite) or use alias. Candidates: ${hint}`,
+        });
+      }
+
+      const [alias] = matches[0];
+      db = registry.get(alias)!;
     }
+
     if (readOnly && !/^\s*select\b/i.test(sql)) {
       return res.status(400).json({ error: "readOnly mode: only SELECT is allowed." });
     }
@@ -88,66 +133,9 @@ app.post("/sql/query", async (req: Request, res: Response) => {
   }
 });
 
+
 // MCP server + tools
 const mcpServer = new McpServer({ name: "mcp-sql", version: "0.2.0" });
-
-
-// Initial Block of Code
-// ----------------------------------------------------------------------------------------------------------------------------------------
-// let transport: StreamableHTTPServerTransport | null = null;
-// let sessionId: string | null = null;
-
-// // MCP endpoint (Streamable HTTP)
-// app.post("/mcp", async (req: Request, res: Response) => {
-//   try {
-//     if (!transport) {
-//       // First request must be "initialize" with no session header yet
-//       if (!isInitializeRequest(req.body)) {
-//         return res.status(400).json({
-//           error: "First request must be 'initialize' (no mcp-session-id yet)."
-//         });
-//       }
-
-//       transport = new StreamableHTTPServerTransport({
-//         enableDnsRebindingProtection: true,              // good for prod
-//         sessionIdGenerator: () => {
-//           sessionId = randomUUID();
-//           return sessionId!;
-//         },
-//         // NOTE: lowercase header is fine; headers are case-insensitive
-//         onsessioninitialized: (sid: string) => {
-//           sessionId = sid;
-//           // Send both casings to be maximally compatible with different clients
-//           res.setHeader("Mcp-Session-Id", sid);
-//           res.setHeader("mcp-session-id", sid);
-//         },
-//       });
-
-//       await mcpServer.connect(transport);
-//     } 
-//     // else {
-//     //   const sidHeader = req.header("mcp-session-id");
-//     //   if (!sidHeader || sidHeader !== sessionId) {
-//     //     return res.status(404).json({ error: "Unknown or missing mcp-session-id" });
-//     //   }
-//     // }
-
-//     // IMPORTANT: pass the parsed body so transport doesn't re-read the stream
-//     await transport.handleRequest(req, res, req.body);
-//   } catch (err: any) {
-//     // Reset stale MCP state so next attempt can re-initialize cleanly
-//     transport = null;
-//     sessionId = null;
-
-//     console.error("[mcp-http] /mcp error:", err);
-//     res.status(500).json({ error: String(err?.message ?? err) });
-//   }
-// });
-
-
-// Updated Block of Code
-// ----------------------------------------------------------------------------------------------------------------------------------------
-
 const transports = new Map<string, StreamableHTTPServerTransport>();
 
 app.post('/mcp', async (req, res) => {
@@ -204,26 +192,37 @@ const handleSessionRequest = async (req: any, res: any) => {
 app.get('/mcp', handleSessionRequest);
 app.delete('/mcp', handleSessionRequest);
 
-// ----------------------------------------------------------------------------------------------------------------------------------------
-
 (async () => {
   const cfgPath = process.env.SQL_DBS_CONFIG ?? "./dbs.yaml";
   const loaded = await loadDbRegistryFromYaml(cfgPath);
   registry = loaded.registry;
   closeAll = loaded.closeAll;
+  meta = loaded.meta;
+
+  
 
   for (const [alias, db] of registry.entries()) {
     registerSqlTools(mcpServer, {
       db,
       auditPath: process.env.SQL_AUDIT_LOG,
       ns: alias,
+      meta,
+      registry,
     });
   }
-
+  
   app.listen(PORT, () => {
     console.log(`HTTP bridge listening on http://localhost:${PORT}`);
-    console.log(`Available DB aliases: ${Array.from(registry.keys()).join(", ")}`);
+
+    const types = Array.from(new Set(Array.from(meta.values()).map(m => m.dialect))).sort();
+    const names = Array.from(new Set(Array.from(meta.values()).map(m => m.databaseName))).sort();
+    const aliases = Array.from(registry.keys()).sort();
+
+    console.log(`Available DB types:   ${types.join(", ")}`);
+    console.log(`Available DB names:   ${names.join(", ")}`);
+    console.log(`Available DB aliases: ${aliases.join(", ")}`);
   });
+
 })();
 
 process.on("SIGINT", async () => {
@@ -234,3 +233,5 @@ process.on("SIGTERM", async () => {
   await closeAll?.();
   process.exit(0);
 });
+
+

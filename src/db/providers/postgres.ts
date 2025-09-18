@@ -1,12 +1,21 @@
-import { Pool } from "pg";
-import type { DB } from "../provider.js";
+// src/db/providers/postgres.ts
+import { Pool } from 'pg';
+import type { DB } from '../provider.js';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export default function createPostgresDb(): DB {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
 
-export const pgDb: DB = {
-  dialect: "pg",
-  async query<T>(text: string, params: any[]) {
-    const res = await pool.query(text, params);
-    return { rows: res.rows as T[], rowCount: res.rowCount ?? res.rows.length };
-  }
-};
+  return {
+    dialect: 'pg',
+
+    async query(text, params?: any) {
+      // Your param mapper should already convert :name → $1,$2 and give an array
+      const res = await pool.query(text, Array.isArray(params) ? params : undefined);
+      return { rows: res.rows, rowCount: res.rowCount ?? res.rows.length };
+    },
+
+    async close() {
+      await pool.end();
+    },
+  };
+}

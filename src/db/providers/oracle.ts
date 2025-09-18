@@ -1,78 +1,83 @@
 // src/db/providers/oracle.ts
-import oracledb from "oracledb";
-import type { DB } from "../provider.js";
+import oracledb from 'oracledb';
+import type { DB } from '../provider.js';
 
-/**
- * Expected .env example(s):
- *   DB_PROVIDER=oracle
- *   # XE 21c default PDB
- *   DATABASE_URL=system/oracle@127.0.0.1:1521/XEPDB1
- *   # 23ai Free default PDB
- *   # DATABASE_URL=system/oracle@127.0.0.1:1521/FREEPDB1
- *
- * Notes:
- * - node-oracledb defaults to Thin mode => no Oracle Client install required.  [1](https://node-oracledb.readthedocs.io/en/latest/user_guide/installation.html)[2](https://node-oracledb.readthedocs.io/en/latest/user_guide/appendix_a.html)
- * - Default service names: XE uses XEPDB1; 23ai Free uses FREEPDB1.          [3](https://www.typeerror.org/docs/mariadb/installing-mariadb-windows-zip-packages/index)[4](https://www.enterprisedb.com/download-postgresql-binaries)
- */
-
-const dsn = process.env.DATABASE_URL ?? "";
-const cfg = parseEzConnect(dsn); // { user, password, connectString }
-
-if (!cfg) {
-  throw new Error(
-    `Invalid or missing DATABASE_URL for Oracle.
-     Expected format: USER/PASSWORD@HOST:1521/SERVICE
-     e.g., system/oracle@127.0.0.1:1521/XEPDB1`
-  );
-}
-
-// Singleton pool
-const poolPromise = oracledb.createPool({
-  user: cfg.user,
-  password: cfg.password,
-  connectString: cfg.connectString,
-  poolMin: 0,
-  poolMax: 4,
-  poolIncrement: 1
-});
-
-export const oracleDb: DB = {
-  dialect: "oracle",
-  async query<T>(text: string, params: Record<string, any>) {
-    const pool = await poolPromise;
-    const conn = await pool.getConnection();
-    try {
-      const sql = normalizeSql(text);
-      const res = await conn.execute<T>(sql, params, {
-        outFormat: oracledb.OUT_FORMAT_OBJECT,
-        autoCommit: true
-      });
-      const rows = (res.rows ?? []) as unknown as T[];
-      const rowCount = rows.length || (res.rowsAffected ?? 0);
-      return { rows, rowCount };
-    } finally {
-      await conn.close();
-    }
-  },
-  async close() {
-    const pool = await poolPromise;
-    await pool.close(0);
-  }
-};
-
-/** Accepts USER/PASSWORD@HOST:PORT/SERVICE and returns user/password/connectString */
-function parseEzConnect(dsn: string):
-  | { user: string; password: string; connectString: string }
-  | null {
-  const m = dsn.match(/^([^/]+)\/([^@]+)@(.+)$/);
+function parseEzConnect(url: string) {
+  // DATABASE_URL format expected: user/password@host:port/service
+  const m = url.match(/^([^/]+)\/([^@]+)@(.+)$/);
   if (!m) return null;
   const [, user, password, connectString] = m;
   return { user, password, connectString };
 }
 
-/** Oracle requires FROM DUAL for scalar selects; make 'SELECT 1' work nicely */
 function normalizeSql(sql: string): string {
-  const s = sql.trim().replace(/;$/, "");
-  if (/^select\s+1\s*$/i.test(s)) return "SELECT 1 AS OK FROM DUAL";
-  return sql;
+  // Make "SELECT 1" portable in Oracle
+  return /^\s*select\s+1\s*;?\s*$/i.test(sql)
+    ? 'SELECT 1 AS "OK" FROM DUAL'
+    : sql;
+}
+
+export default function createOracleDb(): DB {
+  // Prefer ORACLE_* if provided; else parse DATABASE_URL (EZCONNECT)
+  const url = process.env.DATABASE_URL!;
+  const fromUrl = parseEzConnect(url) ?? {};
+  const user = process.env.ORACLE_USER ?? (fromUrl as any).user;
+  const password = process.env.ORACLE_PASSWORD ?? (fromUrl as any).password;
+  const connectString = process.env.ORACLE_CONNECT_STRING ?? (fromUrl as any).connectString;
+
+  if (!user || !password || !connectString) {
+    throw new Error('Oracle config missing: user/password/connectString');
+  }
+
+  let pool: oracledb.Pool | null = null;
+  let poolPromise: Promise<oracledb.Pool> | null = null;
+
+  async function getPool(): Promise<oracledb.Pool> {
+    if (pool) return pool;
+    if (!poolPromise) {
+      poolPromise = oracledb
+        .createPool({
+          user,
+          password,
+          connectString,
+          // You can expose pool tuning here if needed (poolMin, poolMax, stmtCacheSize, etc.)
+        })
+        .then(p => {
+          pool = p;
+          return p;
+        })
+        .catch(err => {
+          poolPromise = null;
+          throw err;
+        });
+    }
+    return poolPromise;
+  }
+
+  return {
+    dialect: 'oracle',
+
+    async query(text, params?: any) {
+      const p = await getPool();
+      const conn = await p.getConnection();
+      try {
+        const sql = normalizeSql(text);
+        const bind = params ?? {};
+        const res = await conn.execute(sql, bind, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        const rows = (res.rows as any[]) ?? [];
+        return { rows, rowCount: rows.length };
+      } finally {
+        await conn.close();
+      }
+    },
+
+    async close() {
+      try {
+        await pool?.close(0);
+      } finally {
+        pool = null;
+        poolPromise = null;
+      }
+    },
+  };
 }

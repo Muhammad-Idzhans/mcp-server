@@ -1,17 +1,60 @@
-import sql from "mssql";
-import type { DB } from "../provider.js";
+// src/db/providers/mssql.ts
+import mssql from 'mssql';
+import type { DB } from '../provider.js';
 
-const connection = process.env.DATABASE_URL ?? ""; // e.g., Server=host,1433;Database=db;User Id=u;Password=p;Encrypt=true
-const poolPromise = sql.connect(connection);
+export default function createMssqlDb(): DB {
+  const connectionString = process.env.DATABASE_URL!;
+  let pool: mssql.ConnectionPool | null = null;
+  let connectPromise: Promise<mssql.ConnectionPool> | null = null;
 
-export const mssqlDb: DB = {
-  dialect: "mssql",
-  async query<T>(text: string, params: { name: string; value: any }[]) {
-    const pool = await poolPromise;
-    const request = pool.request();
-    for (const p of params) request.input(p.name, p.value); // you can specify sql.VarChar, etc., if needed
-    const res = await request.query<T>(text);
-    const rows = res.recordset ?? [];
-    return { rows, rowCount: rows.length };
+  async function getPool(): Promise<mssql.ConnectionPool> {
+    if (pool && pool.connected) return pool;
+    if (!connectPromise) {
+      connectPromise = new mssql.ConnectionPool(connectionString)
+        .connect()
+        .then(p => {
+          pool = p;
+          return p;
+        })
+        .catch(err => {
+          connectPromise = null;
+          throw err;
+        });
+    }
+    return connectPromise;
   }
-};
+
+  return {
+    dialect: 'mssql',
+
+    async query(text, params?: any) {
+      const p = await getPool();
+      const req = p.request();
+
+      // Support both array and object parameters
+      if (params) {
+        if (Array.isArray(params)) {
+          // Will work if SQL uses @p1, @p2, ... (your param mapper can generate this)
+          params.forEach((v, i) => req.input(`p${i + 1}`, v));
+        } else if (typeof params === 'object') {
+          for (const [k, v] of Object.entries(params)) {
+            req.input(k, v as any);
+          }
+        }
+      }
+
+      const result = await req.query(text);
+      const rows = result.recordset ?? [];
+      return { rows, rowCount: Array.isArray(rows) ? rows.length : 0 };
+    },
+
+    async close() {
+      try {
+        await pool?.close();
+      } finally {
+        pool = null;
+        connectPromise = null;
+      }
+    },
+  };
+}

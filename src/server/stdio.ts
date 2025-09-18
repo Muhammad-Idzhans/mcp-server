@@ -13,7 +13,7 @@ async function main() {
   const exposeUnscoped = process.env.EXPOSE_UNSCOPED_SQL === "1";
 
   // Build all pools and collect DBs
-  const { registry, closeAll } = await loadDbRegistryFromYaml(cfgPath);
+  const { meta, registry, closeAll } = await loadDbRegistryFromYaml(cfgPath);
   const aliases = Array.from(registry.keys());
 
   if (aliases.length === 0) {
@@ -24,7 +24,7 @@ async function main() {
 
   // Register SQL tools per alias (namespaced tools, e.g., "<alias>.sql.query")
   for (const [alias, db] of registry.entries()) {
-    registerSqlTools(server, { db, auditPath, ns: alias });
+    registerSqlTools(server, { db, auditPath, ns: alias, meta, registry });
   }
 
   // Optional: if exactly one DB alias exists, register a second, un-namespaced copy for dev convenience.
@@ -32,7 +32,7 @@ async function main() {
   if (exposeUnscoped && aliases.length === 1) {
     const onlyAlias = aliases[0];
     const onlyDb = registry.get(onlyAlias)!;
-    registerSqlTools(server, { db: onlyDb, auditPath /* no ns => unscoped names */ });
+    registerSqlTools(server, { db: onlyDb, auditPath, ns: undefined, meta, registry });
     console.log(
       `[mcp-sql] EXPOSE_UNSCOPED_SQL=1 -> Also registered un-namespaced SQL tools: sql.schema / sql.peek / sql.query`
     );
