@@ -12,10 +12,14 @@ This MCP Server does not manage multiple databases of the same type. Instead, it
 **Note:** We can extend the current MCP Server to support not only multiple database types but also multiple instances of the same database type if needed.
 
 Below are the endpoints under the SQL Tools:
-| Method | Endpoint       | Description                                |
-|--------|----------------|--------------------------------------------|
-| GET    | /dbs           | Lists all configured databases.            |
-| GET    | /health        | Health check endpoint (server status).     |
+| Method | Endpoint          | Description                                          |
+|--------|----------------   |--------------------------------------------          |
+| GET    | /dbs              | Lists all configured databases.                      |
+| GET    | /health           | Health check endpoint (server status).               |
+| GET    | /dbs              | List all databases name from all database type       |
+| GET    | /dbs/aliases      | List all databases aliases from all database type    |
+| GET    | /dbs/types        | List all available databases types                   |
+| GET    | /dbs/list-by-type | Health check endpoint (server status).               |
 | POST   | /sql/query     | Executes an SQL query against a database.  |
 
 
@@ -86,7 +90,7 @@ Testing Using Postman to retrieve information:
 
 ___
 
-#### **2) MySQL Database (E-commerce Store)**
+#### **2) MYSQL DATABASE (E-commerce Store)**
 
 **TABLE NAME:** `products`
 | product\_id | name          | category    | price   | stock |
@@ -125,8 +129,12 @@ Testing Using Postman to retrieve information:
 
 ___
 
-#### **3) MSSQL Database (Hospital Management)**
+#### **3) MSSQL DATABASE (Hospital Management)**
+- There will be 3 database for mssql to simulate the ability to use 3 database in the same type at one time- These MSSQL Database is deployed in the Azure SQL Database and it has 3 database which is `mssql-mcp`, `coffee_database`and `pastry_database`.
+- Each of these databases will be having 2 tables with 3 rows for each tables.
 
+**DATABASE 1:** `mssql-mcp`
+---
 **TABLE NAME:** `patients`
 | patient\_id | full\_name   | dob        | blood\_type | admitted   |
 | ----------- | ------------ | ---------- | ----------- | ---------- |
@@ -140,6 +148,38 @@ ___
 | D001       | Dr. Michael    | Cardiology | 012-3456789  | Yes       |
 | D002       | Dr. Nur Farah  | Pediatrics | 019-8765432  | No        |
 | D003       | Dr. Abd. Rahman| Surgeon    | 011-78150955 | Yes       |
+
+**DATABASE 2:** `coffee_database`
+---
+**TABLE NAME:** `CoffeeBeans`
+| bean\_id | bean\_name | origin   | roast\_level |
+| -------- | ---------- | -------- | ------------ |
+| 1        | Arabica    | Brazil   | Medium       |
+| 2        | Robusta    | Vietnam  | Dark         |
+| 3        | Liberica   | Malaysia | Light        |
+
+**TABLE NAME:** `CoffeeDrinks`
+| drink\_id | drink\_name   | bean\_id | milk\_type | price |
+| --------- | ------------- | -------- | ---------- | ----- |
+| 1         | Latte         | 1        | Whole      | 4.5   |
+| 2         | Espresso      | 2        | None       | 3.0   |
+| 3         | Kopi Liberica | 3        | Condensed  | 2.5   |
+
+**DATABASE 3:** `pastry_database`
+---
+**TABLE NAME:** `Pastries`
+| pastry\_id | pastry\_name | origin    | main\_flavor |
+| ---------- | ------------ | --------- | ------------ |
+| 1          | Croissant    | France    | Butter       |
+| 2          | Egg Tart     | Hong Kong | Custard      |
+| 3          | Kuih Lapis   | Malaysia  | Coconut      |
+
+**TABLE NAME:** `PastryOrders`
+| order\_id | pastry\_id | customer\_name | quantity | price |
+| --------- | ---------- | -------------- | -------- | ----- |
+| 1         | 1          | Aisha          | 2        | 7.0   |
+| 2         | 2          | John           | 3        | 9.0   |
+| 3         | 3          | Mei Ling       | 1        | 4.5   |
 
 Testing Using Postman to retrieve information:
 ```json
@@ -163,7 +203,7 @@ Testing Using Postman to retrieve information:
 ```
 ___
 
-#### **4) Oracle Database (University System)**
+#### **4) ORACLE DATABASE (University System)**
 
 **TABLE NAME:** `COURSES`
 
@@ -205,9 +245,15 @@ ___
 
 ### Database Environments
 The MCP Server uses environment variables for database connections.
-  - Not all environments are required.
+  - Not all environments are required. Only put the database that is required/existed.
   - If an environment for a database type is missing, the server will still run (It can be used for all database or just use for your desired database).
   - This project do supports SQLite but it will not be focused on since SQLite is usually for the local testing.
+  - If more than one of the same database type appears, the put `,` in between for each of the variable. For example:
+  ```.env
+  MSSQL_USER=user1, user2
+  MSSQL_PASSWORD=pass1, pass2
+  MSSQL_DB=dbName1, dbName2
+  ```
 
 
 
@@ -239,15 +285,6 @@ Delete the existing node_modules and installs dependencies exactly as listed in 
 npm ci
 ```
 
-Runs the build script in your package.json under "scripts":
-```cmd
-npm run build
-```
-
-Delete the existing node_modules and installs dependencies exactly as listed in your package-lock.json (ci = clean install):
-```cmd
-npm ci
-```
 Runs the build script in your package.json under "scripts":
 ```cmd
 npm run build
