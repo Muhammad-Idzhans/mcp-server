@@ -309,6 +309,7 @@ Note: `<database-type-number>.sql.peek/schema/query` will be keep on adding depe
 | **oracle.sql.query**    | Execute a parameterized SQL query against the chosen database. If you provide 'db' (database name, not alias), the target DB is resolved at runtime. Optionally provide 'type' to disambiguate databases with the same name. **Usage Tips:** 1. Use a single SELECT statement. 2. Always use \:name placeholders (e.g., \:from, \:limit). 3. Avoid INSERT, UPDATE, DELETE unless explicitly allowed. 4. Use exact table/column names (call `sql.schema` first if unsure). 5. Add LIMIT/TOP/ROWNUM to keep results small. 6. Prefer ANSI SQL over vendor-specific syntax. |
 
 
+
 ### Deployment to Azure Web App
 Delete the existing node_modules and installs dependencies exactly as listed in your `package-lock.json` _**(ci = clean install)**_:
 ```cmd
@@ -379,3 +380,177 @@ az webapp show -g <resource-group> -n <web-app-name> --query outboundIpAddresses
 ```
 
 
+### Using REST API Endpoints in Azure AI Foundry Agents
+If you want to use API Endpoints instead of MCP endpoints in your Azure AI Foundry, you can register them as a Custom Tool using the OpenAPI 3.0 Specified Tool.
+
+Here’s a sample .json schema you can use. Just change the url with the right Azure Web App URL:
+```json
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "MCP SQL Server API",
+    "version": "1.0.0",
+    "description": "REST API wrapper for MCP SQL server endpoints."
+  },
+  "servers": [
+    {
+      "url": "https://<web-app-link>"
+    }
+  ],
+  "paths": {
+    "/dbs": {
+      "get": {
+        "summary": "List all databases",
+        "operationId": "listDatabases",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dbs/aliases": {
+      "get": {
+        "summary": "List all database aliases",
+        "operationId": "listDatabaseAliases",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dbs/types": {
+      "get": {
+        "summary": "List all SQL database types/engines/dialect",
+        "operationId": "listDatabaseTypes",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dbs/list-by-type": {
+      "get": {
+        "summary": "List all SQL database names available by types/engines/dialect",
+        "operationId": "listDatabaseByTypes",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sql/query": {
+      "post": {
+        "summary": "Execute SQL query against a database",
+        "operationId": "executeSqlQuery",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "db": {
+                    "type": "string",
+                    "description": "The database name to run the query on based on user input"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "mysql",
+                      "mssql",
+                      "oracle",
+                      "pg"
+                    ],
+                    "description": "The type of database engine/dialect"
+                  },
+                  "sql": {
+                    "type": "string",
+                    "description": "The SQL query to execute based on the database type"
+                  }
+                },
+                "required": [
+                  "db",
+                  "type",
+                  "sql"
+                ]
+              },
+              "example": {
+                "db": "pastry_database",
+                "type": "mssql",
+                "sql": "SELECT TOP 10 * FROM PastryOrders;"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Query executed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
