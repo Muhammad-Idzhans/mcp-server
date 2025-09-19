@@ -383,7 +383,7 @@ az webapp show -g <resource-group> -n <web-app-name> --query outboundIpAddresses
 ### Using REST API Endpoints in Azure AI Foundry Agents
 If you want to use API Endpoints instead of MCP endpoints in your Azure AI Foundry, you can register them as a Custom Tool using the OpenAPI 3.0 Specified Tool.
 
-Here’s a sample .json schema you can use. Just change the url with the right Azure Web App URL:
+Here’s a sample .json schema you can use. Just change the url with the right **Azure Web App URL**:
 ```json
 {
   "openapi": "3.0.1",
