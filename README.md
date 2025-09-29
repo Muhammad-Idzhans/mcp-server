@@ -7,9 +7,19 @@
 ## SQL tools for different databases (Postgres, MySQL, SQL, Oracle)
 After you deploying the MCP Server on the website, you will get a particular link called _**Base URL**_. With that link, you be able to access some information through the endpoints that is specified. If your Base URL such as `http://localhost:8787`, then you can use the endpoints as `http://localhost:8787/health`. You can test the endpoints using **_Postman_** as well.
 
-This MCP Server does not manage multiple databases of the same type. Instead, it provides connectivity to multiple database system (Postgres, MySQL, MSSQL, Oracle). Each system is configured independently via environment variables, and queries are executed againts the selected DB. 
+This MCP Server do manage multiple databases of the same type and even from different types. Each of the DB type can be confirgured by putting ```','``` at the specific environment names for the one that have more than one database. For example:
+```python
+# SQL Environment Variables
+MSSQL_HOST=hans-server.database.windows.net, hans-server.database.windows.net, hans-server.database.windows.net
+MSSQL_PORT=1433, 1433, 1433
+MSSQL_USER=IdzhansKhairi, IdzhansKhairi, IdzhansKhairi
+MSSQL_PASSWORD=iloveEnfrasys@123, iloveEnfrasys@123, iloveEnfrasys@123
+MSSQL_DB=mssql-mcp, coffee_database, pastry_database
+```
 
-**Note:** We can extend the current MCP Server to support not only multiple database types but also multiple instances of the same database type if needed.
+Other that that, the MCP Server also do supports multiple sessions at the same time. This means that two users be able to access the chatbot at the same time and access the MCP Server tools at the same time.
+
+**Notes:** The MCP Server currently does not have authentication yet to make sure which users be able to access certain database and certain data.
 
 Below are the endpoints under the SQL Tools:
 | Method | Endpoint          | Description                                          |
