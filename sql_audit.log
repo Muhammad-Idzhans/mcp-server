@@ -11,3 +11,5 @@
 [2025-09-12T03:04:03.522Z] pg rows=3 ms=270 sql=SELECT * FROM members LIMIT 10;
 [2025-09-12T09:01:11.990Z] pg rows=3 ms=261 sql=SELECT * FROM members LIMIT 10;
 [2025-09-12T09:01:22.377Z] mysql rows=3 ms=730 sql=SELECT * FROM orders LIMIT 10;
+[2025-09-29T03:21:06.882Z] mysql rows=3 ms=304 sql=SELECT * FROM orders LIMIT 10;
+[2025-09-29T03:21:28.989Z] pg rows=3 ms=317 sql=SELECT * FROM members LIMIT 10;
