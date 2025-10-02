@@ -407,7 +407,7 @@ with agents_client:
     while True:
         # User message
         prompt = input("\nHow can I help? (type 'quit' to exit): ").strip()
-        if prompt.lower() in ("qiot", "q", "exit"):
+        if prompt.lower() in ("quit", "q", "exit"):
             break
 
         _ = agents_client.messages.create(

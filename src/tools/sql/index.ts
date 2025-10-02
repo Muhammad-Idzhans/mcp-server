@@ -1620,7 +1620,7 @@ export function registerSqlTools(
         {
           title: "List databases aliases",
           description: "Return the list of available database aliases on this server (e.g., hr, finance, library).",
-          inputSchema: {},
+          inputSchema: z.object({}).shape,
         },
         async (args: Record<string, unknown> = {}) => {
           const set = serverAliases.get(server) ?? new Set<string>();
