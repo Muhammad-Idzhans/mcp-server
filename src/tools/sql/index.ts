@@ -1639,6 +1639,19 @@ export function registerSqlTools(
       );
 
       // db.types (filtered)
+      // server.registerTool(
+      //   "db.types",
+      //   {
+      //     title: "List available database (types)",
+      //     description: "List available database dialects (types) visible in this session.",
+      //     inputSchema: {},
+      //   },
+      //   async () => {
+      //     const visible = metaVisible();
+      //     const types = Array.from(new Set(visible.map(m => m.dialect))).sort();
+      //     return { content: [{ type: "text", text: JSON.stringify(types, null, 2) }] };
+      //   }
+      // );
       server.registerTool(
         "db.types",
         {
@@ -1647,11 +1660,22 @@ export function registerSqlTools(
           inputSchema: {},
         },
         async () => {
-          const visible = metaVisible();
-          const types = Array.from(new Set(visible.map(m => m.dialect))).sort();
-          return { content: [{ type: "text", text: JSON.stringify(types, null, 2) }] };
+          try {
+            const visible = metaVisible() ?? [];
+            const types = Array.from(new Set(
+              visible
+                .map(m => m.dialect)
+                .filter(d => typeof d === "string" && d.length > 0)
+            )).sort();
+            
+            return { content: [{ type: "text", text: JSON.stringify(types, null, 2) }] };
+          } catch (e: any) {
+            console.error("[db.types] failed:", e);
+            return { isError: true, content: [{ type: "text", text: `db.types failed: ${e?.message ?? String(e)}` }] };
+          }
         }
       );
+
 
       // db.names (filtered)
       server.registerTool(
