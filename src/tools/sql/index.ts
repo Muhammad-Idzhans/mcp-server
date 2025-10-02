@@ -1554,7 +1554,7 @@
 
 
 
-import { z, ZodRawShape } from "zod";
+import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { DB } from "../../db/provider.js";
 import type { DbAliasMeta } from "../../db/registry.js";
@@ -1622,9 +1622,19 @@ export function registerSqlTools(
           description: "Return the list of available database aliases on this server (e.g., hr, finance, library).",
           inputSchema: {},
         },
-        async (_args, _extra) => {
-          const aliases = Array.from(serverAliases.get(server) ?? new Set<string>()).sort();
-          return { content: [{ type: "text", text: JSON.stringify(aliases, null, 2) }] };
+        async () => {
+          // const aliases = Array.from(serverAliases.get(server) ?? new Set<string>()).sort();
+          // return { content: [{ type: "text", text: JSON.stringify(aliases, null, 2) }] };
+          
+          try {
+            const set = serverAliases.get(server) ?? new Set<string>();
+            const aliases = Array.from(set).sort();
+            return { content: [{ type: "text", text: JSON.stringify(aliases, null, 2) }] };
+          } catch (e: any) {
+            console.error("[db.aliases] failed:", e);
+            return { isError: true, content: [{ type: "text", text: `db.aliases failed: ${e?.message ?? String(e)}` }] };
+          }
+
         }
       );
 
@@ -1634,7 +1644,7 @@ export function registerSqlTools(
         {
           title: "List available database (types)",
           description: "List available database dialects (types) visible in this session.",
-          inputSchema: z.object({}) as unknown as ZodRawShape,
+          inputSchema: {},
         },
         async () => {
           const visible = metaVisible();
@@ -1649,7 +1659,7 @@ export function registerSqlTools(
         {
           title: "List database names",
           description: "List database names (not aliases) visible in this session (unique, sorted).",
-          inputSchema: z.object({}) as unknown as ZodRawShape,
+          inputSchema: {},
         },
         async () => {
           const visible = metaVisible();
