@@ -1661,10 +1661,12 @@ export function registerSqlTools(
         },
         async () => {
           try {
-            const visible = metaVisible();
-            if (!Array.isArray(visible) || visible.length === 0) {
-              // No databases visible
-              return { content: [{ type: "text", text: "[]" }] };
+            let visible = [];
+            try {
+              visible = metaVisible();  // this can throw
+            } catch (innerErr) {
+              console.error("[db.types] metaVisible() failed:", innerErr);
+              return { content: [{ type: "text", text: "[]" }] }; // return empty array instead of crashing
             }
 
             const types: string[] = [];
@@ -1682,6 +1684,7 @@ export function registerSqlTools(
           }
         }
       );
+
 
 
 
