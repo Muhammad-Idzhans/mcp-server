@@ -1622,19 +1622,12 @@ export function registerSqlTools(
           description: "Return the list of available database aliases on this server (e.g., hr, finance, library).",
           inputSchema: {},
         },
-        async () => {
+        async (args: Record<string, unknown> = {}) => {
+          const set = serverAliases.get(server) ?? new Set<string>();
+          const aliases = Array.from(set).sort();
+          return { content: [{ type: "text", text: JSON.stringify(aliases, null, 2) }] };
           // const aliases = Array.from(serverAliases.get(server) ?? new Set<string>()).sort();
           // return { content: [{ type: "text", text: JSON.stringify(aliases, null, 2) }] };
-          
-          try {
-            const set = serverAliases.get(server) ?? new Set<string>();
-            const aliases = Array.from(set).sort();
-            return { content: [{ type: "text", text: JSON.stringify(aliases, null, 2) }] };
-          } catch (e: any) {
-            console.error("[db.aliases] failed:", e);
-            return { isError: true, content: [{ type: "text", text: `db.aliases failed: ${e?.message ?? String(e)}` }] };
-          }
-
         }
       );
 
