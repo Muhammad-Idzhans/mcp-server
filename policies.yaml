@@ -1,0 +1,56 @@
+# Which aliases each role may access
+# (Use comma-separated roles in dev header X-Role to simulate multiple)
+
+
+# Role Bindings - Define by roles and which database it can access
+roleBindings:
+  # Admin can access everything
+  admin:
+    allow:
+      aliases: ["*"]  
+
+  # Customer policies - Can access customer db only
+  customer:
+    allow:
+      aliases: [customer_db]
+  customer_admin:
+    allow:
+      aliases: [customer_db]
+  
+  # Merchant policies
+  merchant:
+    allow:
+      aliases: [merchant_db]
+  merchant_admin:
+    allow:
+      aliases: [merchant_db]
+
+
+
+# Tool Policies - Which tools a role can use per alias (optional)
+toolPolicies:
+  customer_db:
+    default:
+      tools: [sql.schema, sql.peek, sql.query]
+    byRole:
+      customer: 
+        tools: [sql.query]
+        readOnly: true
+        tableAllow: ["users","purchase_history","points_history"]
+        rowFilters:
+          users:            "user_id = :user_id" 
+          purchase_history: "user_id = :user_id"
+          points_history:   "user_id = :user_id"
+
+  merchant_db:
+    default: 
+      tools: [sql.schema, sql.peek, sql.query]
+    byRole:
+      merchant: 
+        tools: [sql.query]
+        readOnly: true
+        tableAllow: ["items"]
+        rowFilters:
+          items: "merchant_id = :user_id"
+
+        

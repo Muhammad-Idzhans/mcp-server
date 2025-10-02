@@ -3,7 +3,7 @@
 #----------------------------------------------------------------------------
 databases:  
   # Railway MySQL
-  - alias: mysql
+  - alias: ${MYSQL_ALIAS:mysql}
     dialect: mysql
     host: ${MYSQL_HOST}
     port: ${MYSQL_PORT:12498}
@@ -12,7 +12,7 @@ databases:
     database: ${MYSQL_DB}
 
   # Railway PostgreSQL
-  - alias: pg
+  - alias: ${PG_ALIAS:pg}
     dialect: pg
     host: ${PG_HOST}
     port: ${PG_PORT:55537}
@@ -21,7 +21,7 @@ databases:
     database: ${PG_DB}
   
   # Azure SQL Server
-  - alias: mssql
+  - alias: ${MSSQL_ALIAS:mssql}
     dialect: mssql
     host: ${MSSQL_HOST}
     port: ${MSSQL_PORT:1433}
@@ -30,7 +30,7 @@ databases:
     database: ${MSSQL_DB}
 
   # Cloud Oracle - Docker to the Azure Container
-  - alias: oracle
+  - alias: ${ORACLE_ALIAS:oracle}
     dialect: oracle
     connectString: ${ORACLE_CONNECT_STRING}
     user: ${ORACLE_USER}

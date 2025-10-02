@@ -13,3 +13,6 @@
 [2025-09-12T09:01:22.377Z] mysql rows=3 ms=730 sql=SELECT * FROM orders LIMIT 10;
 [2025-09-29T03:21:06.882Z] mysql rows=3 ms=304 sql=SELECT * FROM orders LIMIT 10;
 [2025-09-29T03:21:28.989Z] pg rows=3 ms=317 sql=SELECT * FROM members LIMIT 10;
+[2025-09-30T06:39:58.529Z] pg rows=3 ms=127 sql=SELECT * FROM books LIMIT 10;
+[2025-09-30T06:47:18.176Z] pg rows=3 ms=157 sql=SELECT * FROM books LIMIT 10;
+[2025-10-01T05:24:55.272Z] mysql rows=2 ms=17 sql=SELECT purchase_id, user_id, item_id, total_price FROM purchase_history  WHERE user_id = :user_id ORDER BY purchase_id
