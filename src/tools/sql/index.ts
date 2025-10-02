@@ -1554,7 +1554,7 @@
 
 
 
-import { z } from "zod";
+import { z, ZodRawShape } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { DB } from "../../db/provider.js";
 import type { DbAliasMeta } from "../../db/registry.js";
@@ -1620,7 +1620,7 @@ export function registerSqlTools(
         {
           title: "List databases aliases",
           description: "Return the list of available database aliases on this server (e.g., hr, finance, library).",
-          inputSchema: { },
+          inputSchema: z.object({}) as unknown as ZodRawShape,
         },
         async (_args) => {
           return{
@@ -1637,7 +1637,7 @@ export function registerSqlTools(
         {
           title: "List available database (types)",
           description: "List available database dialects (types) visible in this session.",
-          inputSchema: {},
+          inputSchema: z.object({}) as unknown as ZodRawShape,
         },
         async () => {
           const visible = metaVisible();
@@ -1652,7 +1652,7 @@ export function registerSqlTools(
         {
           title: "List database names",
           description: "List database names (not aliases) visible in this session (unique, sorted).",
-          inputSchema: {},
+          inputSchema: z.object({}) as unknown as ZodRawShape,
         },
         async () => {
           const visible = metaVisible();
