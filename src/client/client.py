@@ -510,6 +510,7 @@ agents_client = AgentsClient(
 # --- MCP tool config ---
 # --- MCP tool config ---
 mcp_server_url = "https://sql-mcp-server01.onrender.com/mcp"
+# mcp_server_url = "http://localhost:8787/mcp"
 mcp_server_label = "sqlmcpserver"
 
 mcp_tool = McpTool(

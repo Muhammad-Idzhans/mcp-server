@@ -1661,29 +1661,19 @@ export function registerSqlTools(
         },
         async () => {
           try {
-            let visible = [];
-            try {
-              visible = metaVisible();  // this can throw
-            } catch (innerErr) {
-              console.error("[db.types] metaVisible() failed:", innerErr);
-              return { content: [{ type: "text", text: "[]" }] }; // return empty array instead of crashing
-            }
-
-            const types: string[] = [];
-            for (const m of visible) {
-              if (m && typeof m.dialect === "string" && m.dialect.length > 0) {
-                types.push(m.dialect);
-              }
-            }
-
-            const uniqueSorted = Array.from(new Set(types)).sort();
-            return { content: [{ type: "text", text: JSON.stringify(uniqueSorted, null, 2) }] };
-          } catch (err: any) {
-            console.error("[db.types] failed:", err);
-            return { isError: true, content: [{ type: "text", text: `db.types failed: ${err?.message ?? String(err)}` }] };
+            const visible = metaVisible() || [];  // fallback if undefined
+            const types = Array.from(new Set(visible.map(m => m.dialect))).sort();
+            return { content: [{ type: "text", text: JSON.stringify(types, null, 2) }] };
+          } catch (e: any) {
+            console.error("[db.types] failed:", e);
+            return {
+              isError: true,
+              content: [{ type: "text", text: `db.types failed: ${e?.message ?? String(e)}` }]
+            };
           }
         }
       );
+
 
 
 
