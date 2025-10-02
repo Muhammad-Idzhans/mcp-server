@@ -1620,19 +1620,26 @@ export function registerSqlTools(
         {
           title: "List databases aliases",
           description: "Return the list of available database aliases on this server (e.g., hr, finance, library).",
-          inputSchema: {},
+          // inputSchema: {},
         },
         async (_args) => {
 
+          console.log("db.aliases called with args:", _args);
+
           try {
             const set = serverAliases.get(server) ?? new Set<string>();
+            console.log("serverAliases set:", set);
+
             const aliases = Array.from(set).sort();
+            console.log("aliases array:", aliases);
+
             return {
               content: [
                 { type: "text", text: JSON.stringify(aliases, null, 2) }
               ],
             };
           } catch (e: any) {
+            console.error("[db.aliases] failed:", e);
             return {
               isError: true,
               content: [{ type: "text", text: `db.aliases failed: ${e?.message ?? String(e)}` }],
@@ -1640,7 +1647,7 @@ export function registerSqlTools(
           }
 
 
-          
+
         }
       );
 
