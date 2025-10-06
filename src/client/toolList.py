@@ -1,8 +1,8 @@
 import requests
 import json
 
-# URL = "https://sql-mcp-server01.onrender.com/mcp"
-URL = "http://localhost:8787/mcp"
+URL = "https://sql-mcp-server01.onrender.com/mcp"
+# URL = "http://localhost:8787/mcp"
 HEADERS = {
     "Content-Type": "application/json", 
     "Accept": "application/json, text/event-stream"

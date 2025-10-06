@@ -484,119 +484,349 @@
 
 
 
+# import os
+# import time
+# import json
+# from dotenv import load_dotenv
+
+# from azure.identity import DefaultAzureCredential
+# from azure.ai.agents import AgentsClient
+# from azure.ai.agents.models import McpTool, ToolSet, ListSortOrder
+
+# # Load env
+# load_dotenv()
+# project_endpoint = os.getenv("PROJECT_ENDPOINT")
+# model_deployment = os.getenv("MODEL_DEPLOYMENT_NAME")
+
+# # Azure client
+# agents_client = AgentsClient(
+#     endpoint=project_endpoint,
+#     credential=DefaultAzureCredential(
+#         exclude_environment_credential=True,
+#         exclude_managed_identity_credential=True
+#     )
+# )
+
+# # --- MCP tool config ---
+# # --- MCP tool config ---
+# mcp_server_url = "https://sql-mcp-server01.onrender.com/mcp"
+# # mcp_server_url = "http://localhost:8787/mcp"
+# mcp_server_label = "sqlmcpserver"
+
+# mcp_tool = McpTool(
+#     server_label=mcp_server_label,
+#     server_url=mcp_server_url,
+# )
+
+# # 🔑 Force tools to always run when chosen
+# mcp_tool.set_approval_mode("never")
+
+# toolset = ToolSet()
+# toolset.add(mcp_tool)
+
+# # 🔍 Debug: show MCP tool info
+# print("Registered MCP tool:")
+# print(f"- Label: {mcp_tool.server_label}")
+# print(f"- URL: {mcp_tool.server_url}")
+# print(f"- Approval mode: {mcp_tool.set_approval_mode}")
+# # ---------------------------------------------------------------
+
+# os.system('cls')
+# with agents_client:
+#     # Create agent connected to MCP server
+#     agent = agents_client.create_agent(
+#         model=model_deployment,
+#         name="sql-mcp-agent",
+#         instructions = """
+#         You are connected to an MCP server labeled 'sqlmcpserver'.
+
+#         RULES:
+#         - If the user asks about databases, you MUST call the correct MCP tool.
+#         - Do NOT answer from your own knowledge.
+#         - Use:
+#           * 'db.aliases' → list aliases
+#           * 'db.names' → list names
+#           * '<alias>.sql.query' → execute SQL
+#         - Always return ONLY the tool output, nothing else.
+#         """,
+#         toolset=toolset
+#     )
+#     print(f"Agent created: {agent.id}")
+
+#     # Create thread
+#     thread = agents_client.threads.create()
+#     print(f"Thread created: {thread.id}")
+
+#     while True:
+#         prompt = input("\nAsk something (or 'quit'): ").strip()
+#         if prompt.lower() in ("quit", "q", "exit"):
+#             break
+
+#         # Send message
+#         _ = agents_client.messages.create(
+#             thread_id=thread.id,
+#             role="user",
+#             content=prompt,
+#         )
+
+#         # Run agent with MCP
+#         run = agents_client.runs.create_and_process(
+#             thread_id=thread.id, 
+#             agent_id=agent.id, 
+#             toolset=toolset
+#         )
+#         print(f"Run status: {run.status}")
+
+#         # 🔍 Inspect tool calls
+#         run_steps = agents_client.run_steps.list(thread_id=thread.id, run_id=run.id)
+#         for step in run_steps:
+#             print(f"\nStep {step.id} status: {step.status}")
+#             if step.step_details:
+#                 print("Step details:")
+#                 print(json.dumps(step.step_details.__dict__, indent=2, default=str))
+
+#         # Print assistant response
+#         messages = agents_client.messages.list(
+#             thread_id=thread.id, 
+#             order=ListSortOrder.ASCENDING
+#         )
+#         print("\nConversation:")
+#         print("-" * 50)
+#         for msg in messages:
+#             if msg.text_messages:
+#                 for tm in msg.text_messages:
+#                     print(f"{msg.role.upper()}: {tm.text.value}")
+#             print("-" * 50)
+
+#     # Clean up
+#     agents_client.delete_agent(agent.id)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# client.py
+# ------------------------------------------------------------
+# Requirements (one-time):
+#   pip install "azure-ai-projects" "azure-ai-agents>=1.2.0b3" azure-identity
+#
+# Env vars:
+#   PROJECT_ENDPOINT       -> Your Azure AI Foundry project endpoint
+#   MODEL_DEPLOYMENT_NAME  -> Your model deployment name
+#
+# Notes:
+# - Uses MCP via ToolSet on runs.create_and_process(...) (NO tool_resources here).
+# - Auto-approves MCP tool calls via RunHandler, and also sets approval_mode("never").
+# - Adds role/user headers expected by your MCP server (x-role, x-user-id).
+# - Works with your Streamable HTTP MCP server at /mcp.
+# ------------------------------------------------------------
+
 import os
-import time
 import json
+import sys
 from dotenv import load_dotenv
 
 from azure.identity import DefaultAzureCredential
-from azure.ai.agents import AgentsClient
-from azure.ai.agents.models import McpTool, ToolSet, ListSortOrder
+from azure.ai.projects import AIProjectClient
+from azure.ai.agents.models import (
+    McpTool,
+    ToolSet,
+    ListSortOrder,
+    RunHandler,
+    ThreadRun,
+    RequiredMcpToolCall,
+    ToolApproval,
+)
 
-# Load env
+# ---------------------------
+# Load environment
+# ---------------------------
 load_dotenv()
-project_endpoint = os.getenv("PROJECT_ENDPOINT")
-model_deployment = os.getenv("MODEL_DEPLOYMENT_NAME")
+PROJECT_ENDPOINT = os.getenv("PROJECT_ENDPOINT")
+MODEL_DEPLOYMENT = os.getenv("MODEL_DEPLOYMENT_NAME")
 
-# Azure client
-agents_client = AgentsClient(
-    endpoint=project_endpoint,
-    credential=DefaultAzureCredential(
-        exclude_environment_credential=True,
-        exclude_managed_identity_credential=True
+if not PROJECT_ENDPOINT or not MODEL_DEPLOYMENT:
+    print(
+        "[ERROR] Missing PROJECT_ENDPOINT or MODEL_DEPLOYMENT_NAME env vars.\n"
+        "Set them and re-run. Example (PowerShell):\n"
+        "  $env:PROJECT_ENDPOINT='https://<id>.services.ai.azure.com/api/projects/<project>'\n"
+        "  $env:MODEL_DEPLOYMENT_NAME='gpt-4o-mini'\n",
+        file=sys.stderr,
     )
-)
+    sys.exit(1)
 
-# --- MCP tool config ---
-# --- MCP tool config ---
-mcp_server_url = "https://sql-mcp-server01.onrender.com/mcp"
-# mcp_server_url = "http://localhost:8787/mcp"
-mcp_server_label = "sqlmcpserver"
+# ---------------------------
+# MCP tool/server settings
+# ---------------------------
+MCP_SERVER_URL = "https://sql-mcp-server01.onrender.com/mcp"
+MCP_SERVER_LABEL = "sqlmcpserver"
 
+# Build MCP tool definition
 mcp_tool = McpTool(
-    server_label=mcp_server_label,
-    server_url=mcp_server_url,
+    server_label=MCP_SERVER_LABEL,
+    server_url=MCP_SERVER_URL,
+    # Optional: restrict which server tools the agent can call
+    allowed_tools=["db.aliases", "db.names", "db.types", "db.listByType", "customer_db.sql.query"],
 )
 
-# 🔑 Force tools to always run when chosen
-mcp_tool.set_approval_mode("always")
+# Approval mode & headers forwarded per run (via ToolSet → tool resources)
+mcp_tool.set_approval_mode("never")  # avoid human-in-the-loop for safe read ops
+mcp_tool.update_headers("x-role", "admin")         # your server uses this for discovery RBAC
+mcp_tool.update_headers("x-user-id", "test_user")  # satisfies row-level filters if used
+# (Optional) Streamable HTTP spec recommends POST Accept includes both JSON & SSE; SDK handles this,
+# but adding is harmless:
+mcp_tool.update_headers("Accept", "application/json, text/event-stream")
 
+# Wrap in ToolSet (this is what create_and_process expects)
 toolset = ToolSet()
 toolset.add(mcp_tool)
 
-# 🔍 Debug: show MCP tool info
-print("Registered MCP tool:")
-print(f"- Label: {mcp_tool.server_label}")
-print(f"- URL: {mcp_tool.server_url}")
-print(f"- Approval mode: {mcp_tool.set_approval_mode}")
-# ---------------------------------------------------------------
 
-os.system('cls')
-with agents_client:
-    # Create agent connected to MCP server
-    agent = agents_client.create_agent(
-        model=model_deployment,
-        name="sql-mcp-agent",
-        instructions = """
-        You are connected to an MCP server labeled 'sqlmcpserver'.
+# ---------------------------
+# Auto-approve MCP tool calls
+# (used by create_and_process)
+# ---------------------------
+class AutoApproveMcp(RunHandler):
+    def submit_mcp_tool_approval(
+        self, *, run: ThreadRun, tool_call: RequiredMcpToolCall, **kwargs
+    ) -> ToolApproval:
+        # Forward the headers we set on the McpTool (x-role, x-user-id, approval policy, etc.)
+        return ToolApproval(
+            tool_call_id=tool_call.id,
+            approve=True,
+            headers=mcp_tool.headers,
+        )
 
-        RULES:
-        - If the user asks about databases, you MUST call the correct MCP tool.
-        - Do NOT answer from your own knowledge.
-        - Use:
-          * 'db.aliases' → list aliases
-          * 'db.names' → list names
-          * '<alias>.sql.query' → execute SQL
-        - Always return ONLY the tool output, nothing else.
-        """,
-        toolset=toolset
+
+def print_steps(agents_client, thread_id: str, run_id: str) -> None:
+    steps = agents_client.run_steps.list(thread_id=thread_id, run_id=run_id)
+    for step in steps:
+        print(f"\n[Step] {step.id}  status={step.status}")
+        # Show whatever the SDK exposes for debugging
+        try:
+            details = getattr(step, "step_details", None)
+            if details is not None:
+                print(json.dumps(details.__dict__, indent=2, default=str))
+        except Exception:
+            pass
+
+
+def print_conversation(agents_client, thread_id: str) -> None:
+    msgs = agents_client.messages.list(thread_id=thread_id, order=ListSortOrder.ASCENDING)
+    print("\nConversation:")
+    print("-" * 60)
+    for msg in msgs:
+        if msg.text_messages:
+            for tm in msg.text_messages:
+                print(f"{msg.role.upper()}: {tm.text.value}")
+        print("-" * 60)
+
+
+def main():
+    # Create Azure client
+    project_client = AIProjectClient(
+        endpoint=PROJECT_ENDPOINT,
+        credential=DefaultAzureCredential(
+            exclude_environment_credential=True,        # keep same as your sample
+            exclude_managed_identity_credential=True,   # adjust if you use MSI
+        ),
     )
-    print(f"Agent created: {agent.id}")
 
-    # Create thread
-    thread = agents_client.threads.create()
-    print(f"Thread created: {thread.id}")
+    with project_client:
+        agents_client = project_client.agents
 
-    while True:
-        prompt = input("\nAsk something (or 'quit'): ").strip()
-        if prompt.lower() in ("quit", "q", "exit"):
-            break
-
-        # Send message
-        _ = agents_client.messages.create(
-            thread_id=thread.id,
-            role="user",
-            content=prompt,
+        # Create the Agent wired to our ToolSet (MCP server)
+        agent = agents_client.create_agent(
+            model=MODEL_DEPLOYMENT,
+            name="sql-mcp-agent",
+            instructions=(
+                "You are connected to an MCP server labeled 'sqlmcpserver'.\n"
+                "RULES:\n"
+                "- If the user asks about databases, call the right MCP tool.\n"
+                "- Do NOT answer from your own knowledge.\n"
+                "- Use:\n"
+                "  * 'db.aliases' → list aliases\n"
+                "  * 'db.names' → list names\n"
+                "  * '<alias>.sql.query' → execute SQL\n"
+                "- Return ONLY the tool output."
+            ),
+            toolset=toolset,  # <— IMPORTANT: pass the ToolSet here
         )
+        print(f"Agent created: {agent.id}")
 
-        # Run agent with MCP
-        run = agents_client.runs.create_and_process(
-            thread_id=thread.id, 
-            agent_id=agent.id, 
-            toolset=toolset
-        )
-        print(f"Run status: {run.status}")
+        # Create a thread
+        thread = agents_client.threads.create()
+        print(f"Thread created: {thread.id}")
 
-        # 🔍 Inspect tool calls
-        run_steps = agents_client.run_steps.list(thread_id=thread.id, run_id=run.id)
-        for step in run_steps:
-            print(f"\nStep {step.id} status: {step.status}")
-            if step.step_details:
-                print("Step details:")
-                print(json.dumps(step.step_details.__dict__, indent=2, default=str))
+        print("\nType prompts (e.g., 'List me all database aliases.'). Type 'quit' to exit.")
+        while True:
+            prompt = input("\nAsk something (or 'quit'): ").strip()
+            if prompt.lower() in ("quit", "q", "exit"):
+                break
 
-        # Print assistant response
-        messages = agents_client.messages.list(
-            thread_id=thread.id, 
-            order=ListSortOrder.ASCENDING
-        )
-        print("\nConversation:")
-        print("-" * 50)
-        for msg in messages:
-            if msg.text_messages:
-                for tm in msg.text_messages:
-                    print(f"{msg.role.upper()}: {tm.text.value}")
-            print("-" * 50)
+            # Add the user message
+            _ = agents_client.messages.create(
+                thread_id=thread.id,
+                role="user",
+                content=prompt,
+            )
 
-    # Clean up
-    agents_client.delete_agent(agent.id)
+            # Create-and-process run with our ToolSet and auto-approval
+            run = agents_client.runs.create_and_process(
+                thread_id=thread.id,
+                agent_id=agent.id,
+                toolset=toolset,                 # <— IMPORTANT: NO tool_resources here
+                run_handler=AutoApproveMcp(),    # auto-approve MCP tool calls
+            )
+            print(f"Run status: {run.status}")
+
+            # Inspect steps and show the conversation
+            print_steps(agents_client, thread.id, run.id)
+            print_conversation(agents_client, thread.id)
+
+        # Cleanup if you don't plan to reuse
+        agents_client.delete_agent(agent.id)
+        print("Agent deleted.")
+
+if __name__ == "__main__":
+    try:
+        # Optional: clear console on Windows
+        os.system('cls' if os.name == 'nt' else 'clear')
+    except Exception:
+        pass
+    main()
+
+
+
