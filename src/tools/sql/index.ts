@@ -2170,6 +2170,604 @@
 
 
 
+// import { z } from "zod";
+// import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+// import type { DB } from "../../db/provider.js";
+// import type { DbAliasMeta } from "../../db/registry.js";
+// import { mapNamedToDriver } from "../../db/paramMap.js";
+// import { sqlGuardrails } from "./templates.js";
+// import { excludedOracleTables } from "./unwantedOracle.js";
+
+// // ---- Per-server tracking (no globals) ----
+// const serverAliases = new WeakMap<McpServer, Set<string>>();
+// const discoveryRegistered = new WeakSet<McpServer>();
+
+// export function registerSqlTools(
+//   server: McpServer,
+//   {
+//     db,
+//     auditPath,
+//     ns,
+//     meta,
+//     registry,
+//     // Optional controls for tool-level RBAC & discovery tools visibility
+//     tools, // { schema?: boolean; peek?: boolean; query?: boolean }
+//     dataPolicy,
+//     userContext,
+//     discoveryVisible, // boolean; if false, do NOT register discovery tools
+//   }: {
+//     db: DB;
+//     auditPath?: string;
+//     ns?: string;
+//     meta: Map<string, DbAliasMeta>;
+//     registry: Map<string, DB>;
+//     tools?: { schema?: boolean; peek?: boolean; query?: boolean };
+//     dataPolicy?: { readOnly?: boolean; tableAllow?: string[]; rowFilters?: Record<string, string> };
+//     userContext?: { user_id?: string };
+//     discoveryVisible?: boolean;
+//   }
+// ) {
+//   const name = (base: string) => (ns ? `${ns}.${base}` : base);
+
+//   // Track aliases per server
+//   if (ns) {
+//     const set = serverAliases.get(server) ?? new Set<string>();
+//     set.add(ns);
+//     serverAliases.set(server, set);
+//   }
+
+//   // ---- Register discovery tools once PER SERVER (admin-only via discoveryVisible) ----
+//   if (!discoveryRegistered.has(server)) {
+//     discoveryRegistered.add(server);
+
+//     if (discoveryVisible !== false) {
+//       const metaVisible = (): DbAliasMeta[] => {
+//         const allowed = serverAliases.get(server) ?? new Set<string>();
+//         const out: DbAliasMeta[] = [];
+//         for (const [alias, m] of meta.entries()) {
+//           if (allowed.has(alias)) out.push({ ...m });
+//         }
+//         return out;
+//       };
+
+//       // db.aliases
+//       server.registerTool(
+//         "db.aliases",
+//         {
+//           title: "List databases aliases",
+//           description:
+//             "Return the list of available database aliases on this server (e.g., hr, finance, library).",
+//           // ✅ MCP SDK expects ZodRawShape; empty shape means “no args required”
+//           inputSchema: {},
+//         },
+//         async () => {
+//           try {
+//             const set = serverAliases.get(server) ?? new Set<string>();
+//             const aliases = Array.from(set).sort();
+//             return { content: [{ type: "text", text: JSON.stringify(aliases, null, 2) }] };
+//           } catch (e: any) {
+//             console.error("[db.aliases] failed:", e);
+//             return {
+//               isError: true,
+//               content: [{ type: "text", text: `db.aliases failed: ${e?.message ?? String(e)}` }],
+//             };
+//           }
+//         }
+//       );
+
+//       // db.types
+//       server.registerTool(
+//         "db.types",
+//         {
+//           title: "List available database (types)",
+//           description: "List available database dialects (types) visible in this session.",
+//           // ✅ empty raw shape (no args required)
+//           inputSchema: {},
+//         },
+//         async () => {
+//           try {
+//             const visible = metaVisible() ?? [];
+//             const types = Array.from(new Set(visible.map((m) => m.dialect))).sort();
+//             return { content: [{ type: "text", text: JSON.stringify(types, null, 2) }] };
+//           } catch (e: any) {
+//             console.error("[db.types] failed:", e);
+//             return {
+//               isError: true,
+//               content: [{ type: "text", text: `db.types failed: ${e?.message ?? String(e)}` }],
+//             };
+//           }
+//         }
+//       );
+
+//       // db.names
+//       server.registerTool(
+//         "db.names",
+//         {
+//           title: "List database names",
+//           description:
+//             "List database names (not aliases) visible in this session (unique, sorted).",
+//           // ✅ empty raw shape (no args required)
+//           inputSchema: {},
+//         },
+//         async () => {
+//           const visible = metaVisible();
+//           const names = Array.from(
+//             new Set(visible.map((m) => m.databaseName).filter(Boolean))
+//           ).sort((a, b) => a.localeCompare(b));
+//           return { content: [{ type: "text", text: JSON.stringify(names, null, 2) }] };
+//         }
+//       );
+
+//       // db.listByType (already uses raw shape; kept unchanged)
+//       server.registerTool(
+//         "db.listByType",
+//         {
+//           title: "List databases by type",
+//           description:
+//             "List database names for a given dialect. unique=true returns unique names; set unique=false for one row per alias; includeAliases=true to add alias.",
+//           inputSchema: {
+//             type: z.string().min(1).describe("Dialect: mysql\npg\nmssql\noracle\nsqlite"),
+//             unique: z.boolean().default(true),
+//             includeAliases: z.boolean().default(false),
+//           },
+//         },
+//         async (args) => {
+//           const dialect = String(args?.type ?? "").trim();
+//           const unique = args?.unique ?? true;
+//           const includeAliases = args?.includeAliases ?? false;
+//           if (!dialect) {
+//             return {
+//               isError: true,
+//               content: [{ type: "text", text: JSON.stringify({ error: "Missing required 'type'." }) }],
+//             };
+//           }
+//           const allowed = serverAliases.get(server) ?? new Set<string>();
+//           const visible = Array.from(meta.entries())
+//             .filter(([alias]) => allowed.has(alias))
+//             .map(([, m]) => m)
+//             .filter((m) => m.dialect === dialect);
+
+//           if (unique) {
+//             const names = Array.from(
+//               new Set(visible.map((i) => i.databaseName).filter(Boolean))
+//             ).sort((a, b) => a.localeCompare(b));
+//             return { content: [{ type: "text", text: JSON.stringify(names, null, 2) }] };
+//           }
+
+//           const rows = visible
+//             .map((i) => (includeAliases ? { alias: i.alias, name: i.databaseName } : { name: i.databaseName }))
+//             .sort(
+//               (a: any, b: any) =>
+//                 String(a.name).localeCompare(String(b.name)) ||
+//                 (a.alias !== undefined && b.alias !== undefined
+//                   ? String(a.alias).localeCompare(String(b.alias))
+//                   : 0)
+//             );
+//           return { content: [{ type: "text", text: JSON.stringify(rows, null, 2) }] };
+//         }
+//       );
+//     }
+//   }
+
+//   // ---- Audit (unchanged) ----
+//   async function audit(line: string) {
+//     if (!auditPath) return;
+//     const fs = await import("node:fs/promises");
+//     await fs.appendFile(auditPath, line + "\n", "utf8");
+//   }
+
+//   // ---- Helpers (unchanged) ----
+//   function toMarkdown(rows: any[]): string {
+//     if (!rows?.length) return "_(no rows)_";
+//     const headers = Object.keys(rows[0]);
+//     const top = `${headers.join(" | ")}\n`;
+//     const sep = `${headers.map(() => "---").join(" | ")}\n`;
+//     const body = rows
+//       .map((r) => `${headers.map((h) => fmt(r[h])).join(" | ")}`)
+//       .join("\n");
+//     return [top, sep, body].join("");
+//   }
+//   function fmt(v: unknown): string {
+//     if (v === null || v === undefined) return "";
+//     if (typeof v === "object") return "```json\n" + JSON.stringify(v) + "\n```";
+//     return String(v);
+//   }
+//   function quoteIdent(dialect: DB["dialect"], ident: string): string {
+//     switch (dialect) {
+//       case "pg":
+//       case "oracle":
+//       case "sqlite": {
+//         const safe = ident.replace(/"/g, '""');
+//         return `"${safe}"`;
+//       }
+//       case "mysql": {
+//         const safe = ident.replace(/`/g, "``");
+//         return `\`${safe}\``;
+//       }
+//       case "mssql": {
+//         const safe = ident.replace(/]/g, "]]");
+//         return `[${safe}]`;
+//       }
+//     }
+//   }
+//   function quoteMaybeQualified(dialect: DB["dialect"], ident: string): string {
+//     if (ident.includes(".")) {
+//       const [schema, name] = ident.split(".");
+//       return `${quoteIdent(dialect, schema)}.${quoteIdent(dialect, name)}`;
+//     }
+//     return quoteIdent(dialect, ident);
+//   }
+
+//   async function listTables(dbX: DB): Promise<string[]> {
+//     switch (dbX.dialect) {
+//       case "pg": {
+//         const sql = `
+//           SELECT table_name
+//           FROM information_schema.tables
+//           WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+//           ORDER BY table_name`;
+//         const { rows } = await db.query<{ table_name: string }>(sql, []);
+//         return rows.map((r) => r.table_name);
+//       }
+//       case "mysql": {
+//         const sql = `
+//           SELECT TABLE_NAME AS table_name
+//           FROM information_schema.tables
+//           WHERE table_schema = DATABASE() AND TABLE_TYPE = 'BASE TABLE'
+//           ORDER BY TABLE_NAME`;
+//         const { rows } = await db.query<{ table_name: string }>(sql, []);
+//         return rows.map((r) => r.table_name);
+//       }
+//       case "mssql": {
+//         const sql = `
+//           SELECT TABLE_SCHEMA AS table_schema, TABLE_NAME AS table_name
+//           FROM INFORMATION_SCHEMA.TABLES
+//           WHERE TABLE_TYPE = 'BASE TABLE'
+//           ORDER BY TABLE_SCHEMA, TABLE_NAME`;
+//         const { rows } = await db.query<{ table_schema: string; table_name: string }>(sql, []);
+//         return rows.map((r) => r.table_name);
+//       }
+//       case "oracle": {
+//         const quoted = excludedOracleTables.map((name) => `'${name.toUpperCase()}'`).join(", ");
+//         const sql = `
+//           SELECT table_name AS "table_name"
+//           FROM user_tables
+//           WHERE temporary = 'N'
+//           AND table_name NOT LIKE 'ROLLING$%'
+//           AND table_name NOT LIKE 'SCHEDULER_%'
+//           ${excludedOracleTables.length ? `AND table_name NOT IN (${quoted})` : ""}
+//           AND table_name NOT IN (SELECT object_name FROM user_recyclebin)
+//           ORDER BY table_name`;
+//         const { rows } = await db.query<{ table_name: string }>(sql, []);
+//         return rows.map((r) => r.table_name);
+//       }
+//       case "sqlite": {
+//         const sql = `
+//           SELECT name AS table_name
+//           FROM sqlite_master
+//           WHERE type='table' AND name NOT LIKE 'sqlite_%'
+//           ORDER BY name`;
+//         const { rows } = await db.query<{ table_name: string }>(sql, []);
+//         return rows.map((r) => r.table_name);
+//       }
+//     }
+//   }
+
+//   async function dumpTables(dbX: DB, tables: string[], maxRows: number) {
+//     const result: { table: string; rows: any[] }[] = [];
+//     for (const t of tables) {
+//       const qTable = quoteMaybeQualified(dbX.dialect, t);
+//       let sql: string;
+//       switch (dbX.dialect) {
+//         case "pg":
+//         case "mysql":
+//         case "sqlite":
+//           sql = `SELECT * FROM ${qTable} LIMIT :n`;
+//           break;
+//         case "mssql":
+//           sql = `SELECT TOP (${maxRows}) * FROM ${qTable}`;
+//           break;
+//         case "oracle":
+//           sql = `SELECT * FROM ${qTable} WHERE ROWNUM <= :n`;
+//           break;
+//       }
+//       const { text, params } =
+//         dbX.dialect === "mssql"
+//           ? { text: sql, params: [] as any[] }
+//           : mapNamedToDriver(sql, { n: maxRows }, dbX.dialect);
+//       const { rows } = await db.query<any>(text, params);
+//       result.push({ table: t, rows: Array.isArray(rows) ? rows.slice(0, maxRows) : [] });
+//     }
+//     return result;
+//   }
+
+//   async function describeViaQuery<T extends Record<string, any>>(
+//     dbX: DB,
+//     sql: string,
+//     tableKey: string,
+//     columnKey: string,
+//     typeKey: string
+//   ): Promise<string> {
+//     const { rows } = await db.query<T>(sql, []);
+//     const m = new Map<string, string[]>();
+//     for (const r of rows) {
+//       const t = r[tableKey];
+//       const c = r[columnKey];
+//       const d = r[typeKey];
+//       if (!t || !c) continue;
+//       const list = m.get(t) ?? [];
+//       list.push(`${c} ${d ?? ""}`.trim());
+//       m.set(t, list);
+//     }
+//     return (
+//       [...m.entries()]
+//         .map(([t, cols]) => `### ${t}\n- ${cols.join("\n- ")}`)
+//         .join("\n\n") || "_(no tables)_"
+//     );
+//   }
+
+//   async function describeSchema(dbX: DB) {
+//     const tables = await listTables(dbX);
+//     const safeTables = Array.from(new Set(tables.filter((t): t is string => typeof t === "string" && t.length > 0)));
+//     if (!safeTables.length) return "_(no tables)_";
+
+//     switch (dbX.dialect) {
+//       case "pg": {
+//         const inList = safeTables.map((t) => `'${t}'`).join(", ");
+//         const sql = `
+//           SELECT table_name, column_name, data_type
+//           FROM information_schema.columns
+//           WHERE table_schema = 'public' AND table_name IN (${inList})
+//           ORDER BY table_name, ordinal_position`;
+//         return await describeViaQuery<Record<string, any>>(dbX, sql, "table_name", "column_name", "data_type");
+//       }
+//       case "mysql": {
+//         const inList = safeTables.map((t) => `'${t}'`).join(", ");
+//         const sql = `
+//           SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name, DATA_TYPE AS data_type
+//           FROM information_schema.columns
+//           WHERE table_schema = DATABASE() AND TABLE_NAME IN (${inList})
+//           ORDER BY TABLE_NAME, ORDINAL_POSITION`;
+//         return await describeViaQuery<Record<string, any>>(dbX, sql, "table_name", "column_name", "data_type");
+//       }
+//       case "mssql": {
+//         const q = safeTables.map((t) => {
+//           if (t.includes(".")) {
+//             const [schema, name] = t.split(".");
+//             return { schema: schema.replace(/'/g, "''"), name: name.replace(/'/g, "''") };
+//           }
+//           return { schema: null as string | null, name: t.replace(/'/g, "''") };
+//         });
+//         const hasSchema = q.some((x) => !!x.schema);
+//         let sql: string;
+//         if (hasSchema) {
+//           const orConds = q
+//             .map((x) =>
+//               x.schema
+//                 ? `(TABLE_SCHEMA = '${x.schema}' AND TABLE_NAME = '${x.name}')`
+//                 : `(TABLE_NAME = '${x.name}')`
+//             )
+//             .join(" OR ");
+//           sql = `
+//             SELECT CONCAT(TABLE_SCHEMA, '.', TABLE_NAME) AS table_name, COLUMN_NAME AS column_name, DATA_TYPE AS data_type
+//             FROM INFORMATION_SCHEMA.COLUMNS
+//             WHERE ${orConds}
+//             ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION`;
+//         } else {
+//           const inList = q.map((x) => `'${x.name}'`).join(", ");
+//           sql = `
+//             SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name, DATA_TYPE AS data_type
+//             FROM INFORMATION_SCHEMA.COLUMNS
+//             WHERE TABLE_NAME IN (${inList})
+//             ORDER BY TABLE_NAME, ORDINAL_POSITION`;
+//         }
+//         return await describeViaQuery<Record<string, any>>(dbX, sql, "table_name", "column_name", "data_type");
+//       }
+//       case "oracle": {
+//         const inList = safeTables.map((t) => `'${t.toUpperCase()}'`).join(", ");
+//         const sql = `
+//           SELECT
+//             table_name AS "table_name",
+//             column_name AS "column_name",
+//             CASE
+//               WHEN data_type IN ('VARCHAR2','NVARCHAR2','CHAR','NCHAR') AND data_length IS NOT NULL
+//                 THEN data_type || '(' || data_length || ')'
+//               WHEN data_type = 'NUMBER' AND data_precision IS NOT NULL
+//                 THEN data_type || '(' || data_precision || NVL2(data_scale, ',' || data_scale, '') || ')'
+//               ELSE data_type
+//             END AS "data_type"
+//           FROM user_tab_columns
+//           WHERE UPPER(table_name) IN (${inList})
+//           ORDER BY table_name, column_id`;
+//         return await describeViaQuery<Record<string, any>>(dbX, sql, "table_name", "column_name", "data_type");
+//       }
+//       case "sqlite": {
+//         const parts: string[] = [];
+//         for (const t of safeTables) {
+//           const pragma = `PRAGMA table_info(${quoteIdent(dbX.dialect, t)});`;
+//           const { rows } = await db.query<{ name: string; type: string }>(pragma, []);
+//           if (!rows?.length) continue;
+//           const body = rows.map((r) => `- ${r.name} \`${r.type}\``).join("\n");
+//           parts.push(`## ${t}\n\n${body}`);
+//         }
+//         return parts.join("\n\n") || "_(no tables)_";
+//       }
+//     }
+//   }
+
+//   // ---- Namespaced tools (gated by 'tools' whitelist) ----
+
+//   // Peek
+//   if (tools?.peek !== false) {
+//     server.registerTool(
+//       name("sql.peek"),
+//       {
+//         title: "Peek into database content",
+//         description: [
+//           "Return up to N rows from each base table in the chosen database.",
+//           "Dialect-aware and read-only. Use this to quickly inspect unknown schemas.",
+//           "",
+//           "If you provide 'db' (database name, not alias), this tool will resolve the right DB at runtime.",
+//           "Optionally provide 'type' (mysql\npg\nmssql\noracle\nsqlite) to disambiguate.",
+//         ].join("\n"),
+//         inputSchema: {
+//           maxRowsPerTable: z.number().int().min(1).max(10000).default(50),
+//           as: z.enum(["markdown", "json"]).default("markdown"),
+//         },
+//       },
+//       async ({ maxRowsPerTable, as }) => {
+//         const tables = await listTables(db);
+//         const safeTables = Array.from(
+//           new Set(tables.filter((t): t is string => typeof t === "string" && t.length > 0))
+//         );
+//         if (!safeTables.length) {
+//           return { content: [{ type: "text", text: as === "json" ? "[]" : "_(no tables)_" }] };
+//         }
+//         const dump = await dumpTables(db, safeTables, maxRowsPerTable);
+//         if (as === "json") {
+//           return { content: [{ type: "text", text: JSON.stringify(dump, null, 2) }] };
+//         }
+//         const md = dump.map(({ table, rows }) => `## ${table}\n\n${toMarkdown(rows)}`).join("\n\n");
+//         return { content: [{ type: "text", text: md }] };
+//       }
+//     );
+//   }
+
+//   // Schema
+//   if (tools?.schema !== false) {
+//     server.registerTool(
+//       name("sql.schema"),
+//       {
+//         title: "Describe schema",
+//         description: [
+//           "Return a compact Markdown outline of tables and columns for the chosen database.",
+//           "If you provide 'db' (database name, not alias), this tool will resolve the right DB at runtime.",
+//           "Optionally provide 'type' to disambiguate.",
+//         ].join("\n"),
+//         inputSchema: {},
+//       },
+//       async () => {
+//         const md = await describeSchema(db);
+//         return { content: [{ type: "text", text: md }] };
+//       }
+//     );
+//   }
+
+//   // Query
+//   if (tools?.query !== false) {
+//     server.registerTool(
+//       name("sql.query"),
+//       {
+//         title: "Execute SQL",
+//         description: ["Execute a parameterized SQL query against the chosen database.", "", "**Usage Tips:**", sqlGuardrails()].join("\n"),
+//         inputSchema: {
+//           sql: z.string(),
+//           params: z.record(z.any()).optional().default({}),
+//           readOnly: z.boolean().default(true),
+//           rowLimit: z.number().int().min(1).max(10000).default(1000),
+//           as: z.enum(["json", "markdown"]).default("json"),
+//         },
+//       },
+//       async ({ sql, params = {}, readOnly = true, rowLimit = 1000, as = "json" }) => {
+//         // 1) readOnly (policy overrides user input)
+//         const effectiveReadOnly = dataPolicy?.readOnly ?? readOnly;
+//         if (effectiveReadOnly && !/^\s*select\b/i.test(sql)) {
+//           throw new Error("readOnly mode: only SELECT is allowed.");
+//         }
+
+//         // 2) table allowlist + 3) row filters
+//         let effectiveSql = sql;
+//         let effectiveParams: Record<string, any> = { ...(params ?? {}) };
+
+//         if ((dataPolicy?.tableAllow?.length || dataPolicy?.rowFilters)) {
+//           const base = detectBaseTable(sql);
+//           if (base) {
+//             const bare = base.replace(/^["'`\[\]]?/g, "").split(".").pop()!.toLowerCase();
+
+//             // table allowlist
+//             if (dataPolicy?.tableAllow?.length) {
+//               const ok = dataPolicy.tableAllow.map((t) => t.toLowerCase()).includes(bare);
+//               if (!ok) throw new Error(`Forbidden: table '${bare}' not allowed for this role.`);
+//             }
+
+//             // row filters
+//             const filter = dataPolicy?.rowFilters?.[bare];
+//             if (filter) {
+//               if (/:\s*user_id\b/.test(filter) && userContext?.user_id === undefined) {
+//                 throw new Error("Missing user identity (user_id) for row-level policy.");
+//               }
+//               effectiveSql = addWhere(effectiveSql, filter);
+//               if (userContext?.user_id !== undefined) {
+//                 effectiveParams = { ...effectiveParams, user_id: userContext.user_id };
+//               }
+//             }
+//           }
+//         }
+
+//         // 4) execute
+//         const { text, params: mapped } = mapNamedToDriver(effectiveSql, effectiveParams, db.dialect);
+//         const t0 = Date.now();
+//         const { rows, rowCount } = await db.query(text, mapped);
+//         const ms = Date.now() - t0;
+//         const limited = Array.isArray(rows) && rows.length > rowLimit ? rows.slice(0, rowLimit) : rows;
+
+//         await audit(
+//           `[${new Date().toISOString()}] ${db.dialect} rows=${rowCount ?? limited?.length ?? 0} ms=${ms} sql=${effectiveSql}`
+//         );
+
+//         if (as === "markdown") {
+//           return { content: [{ type: "text", text: toMarkdown(limited) }] };
+//         }
+//         return { content: [{ type: "text", text: JSON.stringify(limited, null, 2) }] };
+//       }
+//     );
+//   }
+
+//   function detectBaseTable(sql: string): string | null {
+//     const m = sql.replace(/\s+/g, " ").match(/\bfrom\s+([A-Za-z0-9_."`\]\[]+)\b/i);
+//     return m?.[1] ?? null;
+//   }
+//   function addWhere(sql: string, filter: string): string {
+//     const idxOrder = sql.search(/\border\s+by\b/i);
+//     const idxLimit = sql.search(/\blimit\b/i);
+//     const idxOffset = sql.search(/\boffset\b/i);
+//     const idxFetch = sql.search(/\bfetch\b/i);
+//     const cut = [idxOrder, idxLimit, idxOffset, idxFetch].filter((i) => i >= 0).sort((a, b) => a - b)[0] ?? sql.length;
+//     const head = sql.slice(0, cut);
+//     const tail = sql.slice(cut);
+//     if (/\bwhere\b/i.test(head)) return head + " AND (" + filter + ") " + tail;
+//     return head + " WHERE " + filter + " " + tail;
+//   }
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { DB } from "../../db/provider.js";
@@ -2216,7 +2814,7 @@ export function registerSqlTools(
     serverAliases.set(server, set);
   }
 
-  // ---- Register discovery tools once PER SERVER (admin-only via discoveryVisible) ----
+  // ---- Register discovery tools once PER SERVER ----
   if (!discoveryRegistered.has(server)) {
     discoveryRegistered.add(server);
 
@@ -2230,15 +2828,13 @@ export function registerSqlTools(
         return out;
       };
 
-      // db.aliases
+      // db.aliases (no inputSchema -> accept null/omitted args)
       server.registerTool(
         "db.aliases",
         {
           title: "List databases aliases",
           description:
             "Return the list of available database aliases on this server (e.g., hr, finance, library).",
-          // ✅ MCP SDK expects ZodRawShape; empty shape means “no args required”
-          inputSchema: {},
         },
         async () => {
           try {
@@ -2255,14 +2851,12 @@ export function registerSqlTools(
         }
       );
 
-      // db.types
+      // db.types (no inputSchema)
       server.registerTool(
         "db.types",
         {
           title: "List available database (types)",
           description: "List available database dialects (types) visible in this session.",
-          // ✅ empty raw shape (no args required)
-          inputSchema: {},
         },
         async () => {
           try {
@@ -2279,15 +2873,13 @@ export function registerSqlTools(
         }
       );
 
-      // db.names
+      // db.names (no inputSchema)
       server.registerTool(
         "db.names",
         {
           title: "List database names",
           description:
             "List database names (not aliases) visible in this session (unique, sorted).",
-          // ✅ empty raw shape (no args required)
-          inputSchema: {},
         },
         async () => {
           const visible = metaVisible();
@@ -2298,7 +2890,7 @@ export function registerSqlTools(
         }
       );
 
-      // db.listByType (already uses raw shape; kept unchanged)
+      // db.listByType (has inputs -> keep raw shape)
       server.registerTool(
         "db.listByType",
         {
@@ -2597,7 +3189,7 @@ export function registerSqlTools(
 
   // ---- Namespaced tools (gated by 'tools' whitelist) ----
 
-  // Peek
+  // Peek (has inputs -> keep shape)
   if (tools?.peek !== false) {
     server.registerTool(
       name("sql.peek"),
@@ -2633,7 +3225,7 @@ export function registerSqlTools(
     );
   }
 
-  // Schema
+  // Schema (no inputSchema)
   if (tools?.schema !== false) {
     server.registerTool(
       name("sql.schema"),
@@ -2644,7 +3236,6 @@ export function registerSqlTools(
           "If you provide 'db' (database name, not alias), this tool will resolve the right DB at runtime.",
           "Optionally provide 'type' to disambiguate.",
         ].join("\n"),
-        inputSchema: {},
       },
       async () => {
         const md = await describeSchema(db);
@@ -2653,7 +3244,7 @@ export function registerSqlTools(
     );
   }
 
-  // Query
+  // Query (has inputs -> keep shape)
   if (tools?.query !== false) {
     server.registerTool(
       name("sql.query"),
@@ -2739,4 +3330,3 @@ export function registerSqlTools(
     return head + " WHERE " + filter + " " + tail;
   }
 }
-
