@@ -3370,14 +3370,10 @@
 
 
 
-// Changes for MCP Client in the mcp
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { DB } from "../../db/provider.js";
 import type { DbAliasMeta } from "../../db/registry.js";
-import { mapNamedToDriver } from "../../db/paramMap.js";
-import { sqlGuardrails } from "./templates.js";
-import { excludedOracleTables } from "./unwantedOracle.js";
 
 const serverAliases = new WeakMap<McpServer, Set<string>>();
 const discoveryRegistered = new WeakSet<McpServer>();
@@ -3428,55 +3424,33 @@ export function registerSqlTools(
       };
 
       // db.aliases (no inputSchema)
-      server.registerTool(
-        "db.aliases",
-        {
-          title: "List database aliases",
-          description: "Return the list of available database aliases on this server.",
-        },
-        async () => {
-          const set = serverAliases.get(server) ?? new Set<string>();
-          const aliases = Array.from(set).sort();
-          return { content: [{ type: "text", text: JSON.stringify(aliases, null, 2) }] };
-        }
-      );
+      server.registerTool("db.aliases", { title: "List database aliases" }, async () => {
+        const set = serverAliases.get(server) ?? new Set<string>();
+        const aliases = Array.from(set).sort();
+        return { content: [{ type: "text", text: JSON.stringify(aliases, null, 2) }] };
+      });
 
       // db.types (no inputSchema)
-      server.registerTool(
-        "db.types",
-        {
-          title: "List available database types",
-          description: "List available database dialects visible in this session.",
-        },
-        async () => {
-          const visible = metaVisible();
-          const types = Array.from(new Set(visible.map((m) => m.dialect))).sort();
-          return { content: [{ type: "text", text: JSON.stringify(types, null, 2) }] };
-        }
-      );
+      server.registerTool("db.types", { title: "List database types" }, async () => {
+        const visible = metaVisible();
+        const types = Array.from(new Set(visible.map((m) => m.dialect))).sort();
+        return { content: [{ type: "text", text: JSON.stringify(types, null, 2) }] };
+      });
 
       // db.names (no inputSchema)
-      server.registerTool(
-        "db.names",
-        {
-          title: "List database names",
-          description: "List database names visible in this session.",
-        },
-        async () => {
-          const visible = metaVisible();
-          const names = Array.from(new Set(visible.map((m) => m.databaseName).filter(Boolean))).sort();
-          return { content: [{ type: "text", text: JSON.stringify(names, null, 2) }] };
-        }
-      );
+      server.registerTool("db.names", { title: "List database names" }, async () => {
+        const visible = metaVisible();
+        const names = Array.from(new Set(visible.map((m) => m.databaseName).filter(Boolean))).sort();
+        return { content: [{ type: "text", text: JSON.stringify(names, null, 2) }] };
+      });
 
       // db.listByType (keep schema)
       server.registerTool(
         "db.listByType",
         {
           title: "List databases by type",
-          description: "List database names for a given dialect.",
           inputSchema: {
-            type: z.string().min(1).describe("Dialect: mysql|pg|mssql|oracle|sqlite"),
+            type: z.string().min(1),
             unique: z.boolean().default(true),
             includeAliases: z.boolean().default(false),
           },
@@ -3485,9 +3459,8 @@ export function registerSqlTools(
           const dialect = String(args?.type ?? "").trim();
           const unique = args?.unique ?? true;
           const includeAliases = args?.includeAliases ?? false;
-          if (!dialect) {
-            return { isError: true, content: [{ type: "text", text: "Missing required 'type'." }] };
-          }
+          if (!dialect) return { isError: true, content: [{ type: "text", text: "Missing 'type'." }] };
+
           const allowed = serverAliases.get(server) ?? new Set<string>();
           const visible = Array.from(meta.entries())
             .filter(([alias]) => allowed.has(alias))
@@ -3508,20 +3481,18 @@ export function registerSqlTools(
     }
   }
 
-  // sql.peek (keep schema)
+  // sql.peek
   if (tools?.peek !== false) {
     server.registerTool(
       name("sql.peek"),
       {
         title: "Peek into database content",
-        description: "Return up to N rows from each base table.",
         inputSchema: {
           maxRowsPerTable: z.number().int().min(1).max(10000).default(50),
           as: z.enum(["markdown", "json"]).default("markdown"),
         },
       },
       async ({ maxRowsPerTable, as }) => {
-        // Implement peek logic here
         return { content: [{ type: "text", text: "_peek logic here_" }] };
       }
     );
@@ -3529,25 +3500,17 @@ export function registerSqlTools(
 
   // sql.schema (no inputSchema)
   if (tools?.schema !== false) {
-    server.registerTool(
-      name("sql.schema"),
-      {
-        title: "Describe schema",
-        description: "Return a compact Markdown outline of tables and columns.",
-      },
-      async () => {
-        return { content: [{ type: "text", text: "_schema logic here_" }] };
-      }
-    );
+    server.registerTool(name("sql.schema"), { title: "Describe schema" }, async () => {
+      return { content: [{ type: "text", text: "_schema logic here_" }] };
+    });
   }
 
-  // sql.query (keep schema)
+  // sql.query
   if (tools?.query !== false) {
     server.registerTool(
       name("sql.query"),
       {
         title: "Execute SQL",
-        description: "Execute a parameterized SQL query.",
         inputSchema: {
           sql: z.string(),
           params: z.record(z.any()).optional().default({}),
