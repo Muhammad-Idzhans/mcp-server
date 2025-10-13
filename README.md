@@ -348,6 +348,7 @@ copy package.json srcpkg\
 copy package-lock.json srcpkg\ >NUL 2>&1
 copy tsconfig.json srcpkg\ >NUL 2>&1
 copy dbs.yaml srcpkg\ >NUL 2>&1
+copy policies.yaml srcpkg\ >NUL 2>&1
 if exist src\tools\sql\templates xcopy src\tools\sql\templates srcpkg\src\tools\sql\templates\ /E /I /Y
 ```
 
