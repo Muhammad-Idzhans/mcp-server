@@ -65,162 +65,596 @@
 
 
 
-import requests
+# import requests
+# import json
+# import sys
+# from typing import Any, Dict, Optional
+
+# # ---- Configuration ----
+# # URL = "https://sql-mcp-server01.onrender.com/mcp"
+# # URL = "http://localhost:8787/mcp"
+# URL = "https://mcp-server-isd-2.azurewebsites.net/mcp"
+
+# HEADERS: Dict[str, str] = {
+#     "Content-Type": "application/json",
+#     # Streamable HTTP requires POST to accept both JSON and SSE; keep both:
+#     # (server chooses response mode; we parse whichever we get)
+#     "Accept": "application/json, text/event-stream",
+#     # RBAC / row-filter context for your server
+#     "x-role": "admin",
+#     "x-user-id": "test_user",
+# }
+
+# # ---- Helpers to parse SSE or plain JSON ----
+# def parse_mcp_response(text: str) -> Dict[str, Any]:
+#     """
+#     Parse MCP server responses that may be:
+#       - SSE: 'event: message\\ndata: {...}\\n\\n'
+#       - Plain JSON: '{...}'
+#     Returns the parsed JSON object; raises on failure.
+#     """
+#     t = text.strip()
+#     if t.startswith("event:"):
+#         # Extract the last 'data: {...}' block
+#         lines = t.splitlines()
+#         data_lines = [ln for ln in lines if ln.startswith("data:")]
+#         if not data_lines:
+#             raise ValueError(f"No 'data:' block found in SSE: {t[:200]}...")
+#         payload = data_lines[-1][len("data: "):]
+#         return json.loads(payload)
+#     # Fallback: try JSON directly
+#     return json.loads(t)
+
+# def post_json(url: str, headers: Dict[str, str], payload: Dict[str, Any]) -> requests.Response:
+#     return requests.post(url, headers=headers, data=json.dumps(payload))
+
+# def print_section(title: str, obj: Any) -> None:
+#     print(f"\n=== {title} ===")
+#     if isinstance(obj, (dict, list)):
+#         print(json.dumps(obj, indent=2))
+#     else:
+#         print(obj)
+
+# # ---- MCP client primitives ----
+# def mcp_initialize() -> str:
+#     init_payload = {
+#         "jsonrpc": "2.0",
+#         "id": "1",
+#         "method": "initialize",
+#         "params": {
+#             "protocolVersion": "2025-03-26",
+#             "clientInfo": {"name": "python-client", "version": "1.0.0"},
+#             "capabilities": {"roots": {"listChanged": True}, "sampling": {}, "tools": {}}
+#         }
+#     }
+#     r = post_json(URL, HEADERS, init_payload)
+#     print(f"INIT: {r.status_code}")
+#     # The MCP server uses the response headers to return the session id
+#     sid = r.headers.get("mcp-session-id")
+#     if not sid:
+#         print(r.text)
+#         raise RuntimeError("Server did not return mcp-session-id")
+#     # Show body for debugging
+#     print(r.text)
+#     return sid
+
+# def mcp_ready(sid: str) -> None:
+#     HEADERS["mcp-session-id"] = sid
+#     notif_payload = {"jsonrpc": "2.0", "method": "notifications/initialized"}
+#     r = post_json(URL, HEADERS, notif_payload)
+#     print(f"READY: {r.status_code}")
+#     print(r.text or "")
+
+# def mcp_tools_list() -> Dict[str, Any]:
+#     payload = {"jsonrpc": "2.0", "id": "2", "method": "tools/list", "params": {}}
+#     r = post_json(URL, HEADERS, payload)
+#     print(f"TOOLS: {r.status_code}")
+#     print(r.text)
+#     return parse_mcp_response(r.text)
+
+# def mcp_tools_call(name: str, arguments: Optional[Dict[str, Any]] = None, req_id: str = "call-1") -> Dict[str, Any]:
+#     """
+#     Call a tool. If the tool expects no inputs, pass arguments={} (not None).
+#     Some clients send null for empty args, which can trip validation;
+#     using {} is safest for zero-arg tools.
+#     """
+#     args = arguments if arguments is not None else {}
+#     payload = {
+#         "jsonrpc": "2.0",
+#         "id": req_id,
+#         "method": "tools/call",
+#         "params": {
+#             "name": name,
+#             "arguments": args
+#         }
+#     }
+#     r = post_json(URL, HEADERS, payload)
+#     print(f"CALL [{name}]: {r.status_code}")
+#     print(r.text)
+#     return parse_mcp_response(r.text)
+
+# def main():
+#     try:
+#         # 1) initialize → get session id
+#         sid = mcp_initialize()
+#         # 2) notify ready
+#         mcp_ready(sid)
+#         # 3) list tools
+#         tools_list = mcp_tools_list()
+#         print_section("Available tools", tools_list)
+
+#         # --- Sanity calls on discovery tools ---
+#         aliases = mcp_tools_call("db.aliases", {})        # zero-arg tool: pass {}
+#         print_section("db.aliases result", aliases)
+
+#         types_res = mcp_tools_call("db.types", {})        # zero-arg tool
+#         print_section("db.types result", types_res)
+
+#         names_res = mcp_tools_call("db.names", {})        # zero-arg tool
+#         print_section("db.names result", names_res)
+
+#         # --- db.listByType: needs type ---
+#         # You can change "mysql" to one of the dialects your server shows (from db.types result).
+#         list_mysql = mcp_tools_call("db.listByType", {"type": "mysql", "unique": True, "includeAliases": False})
+#         print_section("db.listByType(mysql)", list_mysql)
+
+#         # --- Peek / Schema / Query on your customer_db alias ---
+#         peek_res = mcp_tools_call("customer_db.sql.peek", {"maxRowsPerTable": 5, "as": "markdown"})
+#         print_section("customer_db.sql.peek", peek_res)
+
+#         schema_res = mcp_tools_call("customer_db.sql.schema", {})
+#         print_section("customer_db.sql.schema", schema_res)
+
+#         # Sample read-only query (adjust table if needed)
+#         query_res = mcp_tools_call(
+#             "customer_db.sql.query",
+#             {
+#                 "sql": "SELECT 1 AS one",
+#                 "params": {},
+#                 "readOnly": True,
+#                 "rowLimit": 10,
+#                 "as": "json"
+#             }
+#         )
+#         print_section("customer_db.sql.query", query_res)
+
+#         print("\nAll MCP calls completed.")
+#     except Exception as e:
+#         print(f"[ERROR] {e}")
+#         sys.exit(1)
+
+# if __name__ == "__main__":
+#     main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# client.py
+import os
 import json
-import sys
-from typing import Any, Dict, Optional
+import time
+import requests
+from typing import Any, Dict, Optional, Set, Callable, Tuple
+from dotenv import load_dotenv
+from azure.identity import DefaultAzureCredential
+from azure.ai.agents import AgentsClient
+from azure.ai.agents.models import (
+    FunctionTool,
+    SubmitToolOutputsAction,
+    ToolOutput,
+    RequiredFunctionToolCall,
+    ListSortOrder,
+)
 
-# ---- Configuration ----
-URL = "https://sql-mcp-server01.onrender.com/mcp"
-# URL = "http://localhost:8787/mcp"
+# ========== Load env ==========
+load_dotenv()
+PROJECT_ENDPOINT = os.environ["PROJECT_ENDPOINT"]
+MODEL_DEPLOYMENT_NAME = os.environ["MODEL_DEPLOYMENT_NAME"]
+MCP_SERVER_URL = os.environ["MCP_SERVER_URL"].rstrip("/")
+# Verbose logs (optional)
+os.environ.setdefault("AZURE_LOG_LEVEL", "warning")
 
-HEADERS: Dict[str, str] = {
-    "Content-Type": "application/json",
-    # Streamable HTTP requires POST to accept both JSON and SSE; keep both:
-    # (server chooses response mode; we parse whichever we get)
-    "Accept": "application/json, text/event-stream",
-    # RBAC / row-filter context for your server
-    "x-role": "admin",
-    "x-user-id": "test_user",
-}
-
-# ---- Helpers to parse SSE or plain JSON ----
-def parse_mcp_response(text: str) -> Dict[str, Any]:
+# ========== Railway DB login (role + user_id) ==========
+def railway_login() -> Tuple[str, str]:
     """
-    Parse MCP server responses that may be:
-      - SSE: 'event: message\\ndata: {...}\\n\\n'
-      - Plain JSON: '{...}'
-    Returns the parsed JSON object; raises on failure.
+    Returns (role, user_id) for the current user by querying your Railway DB.
+    You can set credentials for MySQL or Postgres via env vars.
+    Defaults:
+    - table: users
+    - columns: username, password, role, user_id
+    Prompts at runtime for username/password.
     """
-    t = text.strip()
-    if t.startswith("event:"):
-        # Extract the last 'data: {...}' block
-        lines = t.splitlines()
-        data_lines = [ln for ln in lines if ln.startswith("data:")]
-        if not data_lines:
-            raise ValueError(f"No 'data:' block found in SSE: {t[:200]}...")
-        payload = data_lines[-1][len("data: "):]
-        return json.loads(payload)
-    # Fallback: try JSON directly
-    return json.loads(t)
+    # Prompt user
+    username = input("Login username: ").strip()
+    password = input("Login password: ").strip()
 
-def post_json(url: str, headers: Dict[str, str], payload: Dict[str, Any]) -> requests.Response:
-    return requests.post(url, headers=headers, data=json.dumps(payload))
+    # Config (override via env if your schema differs)
+    table = os.environ.get("AUTH_TABLE", "users")
+    col_user = os.environ.get("AUTH_USER_COL", "username")
+    col_pass = os.environ.get("AUTH_PASS_COL", "password")
+    col_role = os.environ.get("AUTH_ROLE_COL", "role")
+    col_userid = os.environ.get("AUTH_ID_COL", "user_id")
 
-def print_section(title: str, obj: Any) -> None:
-    print(f"\n=== {title} ===")
-    if isinstance(obj, (dict, list)):
-        print(json.dumps(obj, indent=2))
-    else:
-        print(obj)
-
-# ---- MCP client primitives ----
-def mcp_initialize() -> str:
-    init_payload = {
-        "jsonrpc": "2.0",
-        "id": "1",
-        "method": "initialize",
-        "params": {
-            "protocolVersion": "2025-03-26",
-            "clientInfo": {"name": "python-client", "version": "1.0.0"},
-            "capabilities": {"roots": {"listChanged": True}, "sampling": {}, "tools": {}}
-        }
-    }
-    r = post_json(URL, HEADERS, init_payload)
-    print(f"INIT: {r.status_code}")
-    # The MCP server uses the response headers to return the session id
-    sid = r.headers.get("mcp-session-id")
-    if not sid:
-        print(r.text)
-        raise RuntimeError("Server did not return mcp-session-id")
-    # Show body for debugging
-    print(r.text)
-    return sid
-
-def mcp_ready(sid: str) -> None:
-    HEADERS["mcp-session-id"] = sid
-    notif_payload = {"jsonrpc": "2.0", "method": "notifications/initialized"}
-    r = post_json(URL, HEADERS, notif_payload)
-    print(f"READY: {r.status_code}")
-    print(r.text or "")
-
-def mcp_tools_list() -> Dict[str, Any]:
-    payload = {"jsonrpc": "2.0", "id": "2", "method": "tools/list", "params": {}}
-    r = post_json(URL, HEADERS, payload)
-    print(f"TOOLS: {r.status_code}")
-    print(r.text)
-    return parse_mcp_response(r.text)
-
-def mcp_tools_call(name: str, arguments: Optional[Dict[str, Any]] = None, req_id: str = "call-1") -> Dict[str, Any]:
-    """
-    Call a tool. If the tool expects no inputs, pass arguments={} (not None).
-    Some clients send null for empty args, which can trip validation;
-    using {} is safest for zero-arg tools.
-    """
-    args = arguments if arguments is not None else {}
-    payload = {
-        "jsonrpc": "2.0",
-        "id": req_id,
-        "method": "tools/call",
-        "params": {
-            "name": name,
-            "arguments": args
-        }
-    }
-    r = post_json(URL, HEADERS, payload)
-    print(f"CALL [{name}]: {r.status_code}")
-    print(r.text)
-    return parse_mcp_response(r.text)
-
-def main():
+    # Determine DB type from env (mysql \n pg)
+    dialect = (os.environ.get("DB_PROVIDER") or os.environ.get("DB_DIALECT") or "").lower()
+    if not dialect:
+        # fallback: auto if MYSQL_HOST present -> mysql, elif PG_HOST -> pg
+        dialect = "mysql" if os.environ.get("MYSQL_HOST") else ("pg" if os.environ.get("PG_HOST") else "")
+    if dialect not in ("mysql", "pg"):
+        print("[login] No DB_PROVIDER set (mysql\\pg). Using default role='admin', user_id='test_user'.")
+        return ("admin", "test_user")
     try:
-        # 1) initialize → get session id
-        sid = mcp_initialize()
-        # 2) notify ready
-        mcp_ready(sid)
-        # 3) list tools
-        tools_list = mcp_tools_list()
-        print_section("Available tools", tools_list)
+        if dialect == "mysql":
+            import mysql.connector  # mysql-connector-python
+            conn = mysql.connector.connect(
+                host=os.environ["MYSQL_HOST"],
+                port=int(os.environ.get("MYSQL_PORT", "3306")),
+                user=os.environ["MYSQL_USER"],
+                password=os.environ["MYSQL_PASSWORD"],
+                database=os.environ["MYSQL_DB"],
+            )
+            # NOTE: In production use hashed passwords; this demo assumes plain text
+            sql = f"""
+            SELECT {col_role}, {col_userid}
+            FROM {table}
+            WHERE {col_user} = %s AND {col_pass} = %s
+            LIMIT 1
+            """
+            with conn.cursor() as cur:
+                cur.execute(sql, (username, password))
+                row = cur.fetchone()
+            conn.close()
+        else:  # pg
+            import psycopg2  # psycopg2-binary
+            conn = psycopg2.connect(
+                host=os.environ["PG_HOST"],
+                port=int(os.environ.get("PG_PORT", "5432")),
+                user=os.environ["PG_USER"],
+                password=os.environ["PG_PASSWORD"],
+                dbname=os.environ["PG_DB"],
+            )
+            sql = f"""
+            SELECT {col_role}, {col_userid}
+            FROM {table}
+            WHERE {col_user} = %s AND {col_pass} = %s
+            LIMIT 1
+            """
+            with conn.cursor() as cur:
+                cur.execute(sql, (username, password))
+                row = cur.fetchone()
+            conn.close()
+        if not row:
+            print("[login] Invalid credentials. Defaulting to role='customer' user_id='1' for demo.")
+            return ("customer", "1")
+        role, user_id = str(row[0]), str(row[1])
+        print(f"[login] Authenticated. role={role} user_id={user_id}")
+        return (role, user_id)
+    except Exception as ex:
+        print(f"[login] DB error ({dialect}), defaulting to admin/test_user: {ex}")
+        return ("admin", "test_user")
 
-        # --- Sanity calls on discovery tools ---
-        aliases = mcp_tools_call("db.aliases", {})        # zero-arg tool: pass {}
-        print_section("db.aliases result", aliases)
+# ========== Minimal MCP HTTP client (same flow as your toolList.py) ==========
+class McpHttpClient:
+    def __init__(self, url: str):
+        self.url = url.rstrip("/")
+        self.sid: Optional[str] = None
+        self.headers: Dict[str, str] = {
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+            # x-role / x-user-id set after login
+        }
 
-        types_res = mcp_tools_call("db.types", {})        # zero-arg tool
-        print_section("db.types result", types_res)
+    def update_identity(self, role: str, user_id: str):
+        """Update identity headers; call before initialize()"""
+        self.headers["x-role"] = role
+        self.headers["x-user-id"] = user_id
 
-        names_res = mcp_tools_call("db.names", {})        # zero-arg tool
-        print_section("db.names result", names_res)
+    def _post(self, payload: Dict[str, Any]) -> requests.Response:
+        return requests.post(self.url, headers=self.headers, data=json.dumps(payload), timeout=60)
 
-        # --- db.listByType: needs type ---
-        # You can change "mysql" to one of the dialects your server shows (from db.types result).
-        list_mysql = mcp_tools_call("db.listByType", {"type": "mysql", "unique": True, "includeAliases": False})
-        print_section("db.listByType(mysql)", list_mysql)
+    @staticmethod
+    def _parse_response(text: str) -> Dict[str, Any]:
+        t = text.strip()
+        if t.startswith("event:"):
+            lines = t.splitlines()
+            data_lines = [ln for ln in lines if ln.startswith("data:")]
+            if not data_lines:
+                raise ValueError(f"No 'data:' block in SSE: {t[:200]}...")
+            payload = data_lines[-1][len("data: "):]
+            return json.loads(payload)
+        return json.loads(t)
 
-        # --- Peek / Schema / Query on your customer_db alias ---
-        peek_res = mcp_tools_call("customer_db.sql.peek", {"maxRowsPerTable": 5, "as": "markdown"})
-        print_section("customer_db.sql.peek", peek_res)
-
-        schema_res = mcp_tools_call("customer_db.sql.schema", {})
-        print_section("customer_db.sql.schema", schema_res)
-
-        # Sample read-only query (adjust table if needed)
-        query_res = mcp_tools_call(
-            "customer_db.sql.query",
-            {
-                "sql": "SELECT 1 AS one",
-                "params": {},
-                "readOnly": True,
-                "rowLimit": 10,
-                "as": "json"
+    def initialize(self):
+        payload = {
+            "jsonrpc": "2.0",
+            "id": "1",
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-03-26",
+                "clientInfo": {"name": "agents-bridge-client", "version": "1.0.0"},
+                "capabilities": {"roots": {"listChanged": True}, "sampling": {}, "tools": {}}
             }
-        )
-        print_section("customer_db.sql.query", query_res)
+        }
+        r = self._post(payload)
+        r.raise_for_status()
+        sid = r.headers.get("mcp-session-id")
+        if not sid:
+            raise RuntimeError("MCP server did not return mcp-session-id in headers.")
+        self.sid = sid
 
-        print("\nAll MCP calls completed.")
-    except Exception as e:
-        print(f"[ERROR] {e}")
-        sys.exit(1)
+    def ready(self):
+        assert self.sid, "Call initialize() first"
+        self.headers["mcp-session-id"] = self.sid
+        payload = {"jsonrpc": "2.0", "method": "notifications/initialized"}
+        self._post(payload)  # ignore body
+
+    def tools_call(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Call an MCP tool and return a text payload suitable for Agent ToolOutput.
+        We coerce MCP results (content=[{type:'json'|'text'}]) into a single string.
+        """
+        assert self.sid, "Call initialize() first"
+        args = arguments if arguments is not None else {}
+        payload = {
+            "jsonrpc": "2.0",
+            "id": "call-1",
+            "method": "tools/call",
+            "params": {"name": name, "arguments": args}
+        }
+        r = self._post(payload)
+        r.raise_for_status()
+        obj = self._parse_response(r.text)
+        result = obj.get("result") or {}
+        content = result.get("content") or []
+        if not content:
+            return "[]"
+        item = content[0]
+        ctype = item.get("type")
+        if ctype == "text":
+            return item.get("text", "")
+        if ctype == "json":
+            try:
+                return json.dumps(item.get("json"), ensure_ascii=False)
+            except Exception:
+                return str(item.get("json"))
+        return json.dumps(obj, ensure_ascii=False)
+
+_mcp = McpHttpClient(MCP_SERVER_URL)
+_mcp_initialized = False
+def _ensure_mcp_session():
+    global _mcp_initialized
+    if not _mcp_initialized:
+        _mcp.initialize()
+        _mcp.ready()
+        _mcp_initialized = True
+
+# ========== Function tools (generalized) ==========
+def db_aliases() -> str:
+    """Return list of available database aliases as a JSON string."""
+    _ensure_mcp_session()
+    return _mcp.tools_call("db.aliases", {})
+
+def db_types() -> str:
+    """Return list of available database dialects as a JSON string."""
+    _ensure_mcp_session()
+    return _mcp.tools_call("db.types", {})
+
+def db_names() -> str:
+    """Return list of database names (not aliases) as a JSON string."""
+    _ensure_mcp_session()
+    return _mcp.tools_call("db.names", {})
+
+def db_list_by_type(type: str, unique: bool = True, includeAliases: bool = False) -> str:
+    """List databases for a given dialect."""
+    _ensure_mcp_session()
+    args = {"type": type, "unique": unique, "includeAliases": includeAliases}
+    return _mcp.tools_call("db.listByType", args)
+
+def sql_schema(alias: str) -> str:
+    """Return a compact Markdown outline of tables and columns for the given alias."""
+    _ensure_mcp_session()
+    return _mcp.tools_call(f"{alias}.sql.schema", {})
+
+def sql_peek(alias: str, maxRowsPerTable: int = 50, as_: str = "markdown") -> str:
+    """Peek into content for the given alias."""
+    _ensure_mcp_session()
+    args = {"maxRowsPerTable": maxRowsPerTable, "as": as_}
+    return _mcp.tools_call(f"{alias}.sql.peek", args)
+
+def sql_query(alias: str, sql: str, params: Optional[dict] = None,
+              readOnly: bool = True, rowLimit: int = 1000, as_: str = "json") -> str:
+    """Execute a parameterized SQL query against the given alias."""
+    _ensure_mcp_session()
+    args = {"sql": sql, "params": params or {}, "readOnly": readOnly, "rowLimit": rowLimit, "as": as_}
+    return _mcp.tools_call(f"{alias}.sql.query", args)
+
+# ========== Build FunctionTool set ==========
+USER_FUNCTIONS: Set[Callable[..., Any]] = {
+    db_aliases,
+    db_types,
+    db_names,
+    db_list_by_type,
+    sql_schema,
+    sql_peek,
+    sql_query,
+}
+FUNCTIONS = FunctionTool(functions=USER_FUNCTIONS)  # Agent can call these tools
+
+# ========== Run helpers ==========
+TERMINAL = {"completed", "failed", "expired", "cancelled"}
+def normalize_status(run) -> str:
+    s = getattr(run, "status", None)
+    if s is None:
+        return ""
+    for attr in ("value", "name"):
+        if hasattr(s, attr):
+            try:
+                return str(getattr(s, attr)).lower()
+            except Exception:
+                pass
+    return str(s).lower()
+
+def poll_until_terminal(client: AgentsClient, thread_id: str, run_id: str, interval: float = 1.0):
+    last_status = None
+    while True:
+        run = client.runs.get(thread_id=thread_id, run_id=run_id)
+        status = normalize_status(run)
+        if status != last_status:
+            print(f"[debug] run status -> {status}")
+            last_status = status
+        if status in TERMINAL:
+            return run
+        if "requires_action" in status and isinstance(getattr(run, "required_action", None), SubmitToolOutputsAction):
+            tool_calls = run.required_action.submit_tool_outputs.tool_calls
+            outputs = []
+            for tc in tool_calls:
+                print(f"[debug] tool_call: name={getattr(tc,'name','?')} args={getattr(tc,'arguments',{})}")
+                if isinstance(tc, RequiredFunctionToolCall):
+                    try:
+                        out = FUNCTIONS.execute(tc)  # bridges to MCP HTTP
+                    except Exception as ex:
+                        out = f"ERROR executing function '{getattr(tc,'name','?')}': {ex}"
+                    outputs.append(ToolOutput(tool_call_id=tc.id, output=out))
+            if outputs:
+                client.runs.submit_tool_outputs(thread_id=thread_id, run_id=run_id, tool_outputs=outputs)
+        time.sleep(interval)
+
+# ========== Main ==========
+def main():
+    # 1) Login (Railway DB) -> get role + user_id, bind to MCP headers
+    role, user_id = railway_login()
+    _mcp.update_identity(role, user_id)  # must be before initialize
+    _ensure_mcp_session()  # session created using this identity
+
+    # 2) Discover aliases and pick a default alias for this session (tiny addition)
+    try:
+        aliases = json.loads(db_aliases())
+    except Exception:
+        aliases = []
+    # Prefer role-specific alias if present; else first available alias
+    default_alias = None
+    role_l = (role or "").lower()
+    if role_l.startswith("customer") and "customer_db" in aliases:
+        default_alias = "customer_db"
+    elif role_l.startswith("merchant") and "merchant_db" in aliases:
+        default_alias = "merchant_db"
+    elif aliases:
+        default_alias = aliases[0]
+
+    # 3) Get a compact schema preview for the default alias and inject into instructions
+    schema_preview = ""
+    if default_alias:
+        try:
+            schema_preview = sql_schema(default_alias)
+            # keep the preview short to avoid flooding context (adjust as needed)
+            schema_preview = schema_preview[:4000]
+        except Exception:
+            schema_preview = ""
+
+    # 4) Identity-aware instructions (small change from your original)
+    agent_instructions = (
+        "You can use the provided tools to answer questions.\n"
+        f"- Signed-in identity: role={role}, user_id={user_id}.\n"
+        f"- Default database alias to use when not specified: {default_alias}.\n"
+        "- Do NOT ask for credentials; the user is already authenticated.\n"
+        "- When the user says \"my ...\", interpret it with this identity (user_id above).\n"
+        "- Use db_aliases/db_types/db_names/db_list_by_type to discover databases if needed.\n"
+        "- When inspecting or querying a specific database, call sql_schema/peek/query and "
+        "pass the alias argument (use the default alias unless the user specifies another).\n"
+        "- If a tool returns JSON text, summarize as needed.\n"
+        "\n"
+        "### Schema overview (default alias)\n"
+        f"{schema_preview}\n"
+    )
+
+    # 5) Azure Agents client
+    agents_client = AgentsClient(
+        endpoint=PROJECT_ENDPOINT,
+        credential=DefaultAzureCredential(
+            exclude_environment_credential=True,
+            exclude_managed_identity_credential=True,
+        ),
+    )
+
+    # 6) Create agent with generalized function tools + identity-aware instructions
+    with agents_client:
+        agent = agents_client.create_agent(
+            model=MODEL_DEPLOYMENT_NAME,
+            name="sql-mcp-bridge-agent",
+            instructions=agent_instructions,
+            tools=FUNCTIONS.definitions,
+        )
+        print(f"Agent created: {agent.id}")
+        thread = agents_client.threads.create()
+        print(f"Thread created: {thread.id}")
+
+        while True:
+            prompt = input("\nAsk something (or 'quit'): ").strip()
+            if prompt.lower() in ("quit", "q", "exit"):
+                break
+            agents_client.messages.create(thread_id=thread.id, role="user", content=prompt)
+            run = agents_client.runs.create(thread_id=thread.id, agent_id=agent.id)
+            run = poll_until_terminal(agents_client, thread.id, run.id)
+            print(f"Run status: {normalize_status(run)}")
+
+            # Show conversation
+            try:
+                msgs = agents_client.messages.list(thread_id=thread.id, order=ListSortOrder.ASCENDING)
+                print("\nConversation:")
+                print("-" * 60)
+                for m in msgs:
+                    if m.text_messages:
+                        for tm in m.text_messages:
+                            print(f"{m.role.upper()}: {tm.text.value}")
+                print("-" * 60)
+            except Exception as e:
+                print("⚠️ Could not list messages:", e)
+
+        # Optional cleanup
+        try:
+            agents_client.delete_agent(agent.id)
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     main()

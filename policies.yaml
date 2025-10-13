@@ -34,23 +34,29 @@ toolPolicies:
       tools: [sql.schema, sql.peek, sql.query]
     byRole:
       customer: 
-        tools: [sql.query]
+        # tools: [sql.query]
+        tools: [sql.schema, sql.query]   # allow schema for
         readOnly: true
         tableAllow: ["users","purchase_history","points_history"]
         rowFilters:
           users:            "user_id = :user_id" 
           purchase_history: "user_id = :user_id"
           points_history:   "user_id = :user_id"
+        allow:
+          aliases: [customer_db]
 
   merchant_db:
     default: 
       tools: [sql.schema, sql.peek, sql.query]
     byRole:
       merchant: 
-        tools: [sql.query]
+        # tools: [sql.query]
+        tools: [sql.schema, sql.query]   # same idea
         readOnly: true
         tableAllow: ["items"]
         rowFilters:
           items: "merchant_id = :user_id"
+        allow:
+          aliases: [merchant_db]
 
         
