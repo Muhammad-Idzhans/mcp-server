@@ -12,7 +12,7 @@ roleBindings:
   # Customer policies - Can access customer db only
   customer:
     allow:
-      aliases: [customer_db]
+      aliases: [customer_db, merchant_db]
   customer_admin:
     allow:
       aliases: [customer_db]
@@ -53,10 +53,16 @@ toolPolicies:
         # tools: [sql.query]
         tools: [sql.schema, sql.query]   # same idea
         readOnly: true
-        tableAllow: ["items"]
+        tableAllow: ["merchants", "items", "purchase_history"]
         rowFilters:
           items: "merchant_id = :user_id"
         allow:
-          aliases: [merchant_db]
+          aliases: [customer_db, merchant_db]
+      
+      customer:
+        tools: [sql.schema, sql.query]
+        readOnly: true
+        tableAllow: ["items"]
+          
 
         
