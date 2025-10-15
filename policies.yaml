@@ -1,68 +1,86 @@
-# Which aliases each role may access
-# (Use comma-separated roles in dev header X-Role to simulate multiple)
+# # Which aliases each role may access
+# # (Use comma-separated roles in dev header X-Role to simulate multiple)
 
 
-# Role Bindings - Define by roles and which database it can access
-roleBindings:
-  # Admin can access everything
-  admin:
-    allow:
-      aliases: ["*"]  
+# # Role Bindings - Define by roles and which database it can access
+# roleBindings:
+#   # Admin can access everything
+#   admin:
+#     allow:
+#       aliases: ["*"]  
 
-  # Customer policies - Can access customer db only
-  customer:
-    allow:
-      aliases: [customer_db, merchant_db]
-  customer_admin:
-    allow:
-      aliases: [customer_db]
+#   # Customer policies - Can access customer db only
+#   customer:
+#     allow:
+#       aliases: [customer_db, merchant_db]
+#   customer_admin:
+#     allow:
+#       aliases: [customer_db]
   
-  # Merchant policies
-  merchant:
-    allow:
-      aliases: [merchant_db]
-  merchant_admin:
-    allow:
-      aliases: [merchant_db]
+#   # Merchant policies
+#   merchant:
+#     allow:
+#       aliases: [merchant_db]
+#   merchant_admin:
+#     allow:
+#       aliases: [merchant_db]
 
 
 
-# Tool Policies - Which tools a role can use per alias (optional)
-toolPolicies:
-  customer_db:
-    default:
-      tools: [sql.schema, sql.peek, sql.query]
-    byRole:
-      customer: 
-        # tools: [sql.query]
-        tools: [sql.schema, sql.query]   # allow schema for
-        readOnly: true
-        tableAllow: ["users","purchase_history","points_history"]
-        rowFilters:
-          users:            "user_id = :user_id" 
-          purchase_history: "user_id = :user_id"
-          points_history:   "user_id = :user_id"
-        allow:
-          aliases: [customer_db]
+# # Tool Policies - Which tools a role can use per alias (optional)
+# toolPolicies:
+#   customer_db:
+#     default:
+#       tools: [sql.schema, sql.peek, sql.query]
+#     byRole:
+#       customer: 
+#         # tools: [sql.query]
+#         tools: [sql.schema, sql.query]   # allow schema for
+#         readOnly: true
+#         tableAllow: ["users","purchase_history","points_history"]
+#         rowFilters:
+#           users:            "user_id = :user_id" 
+#           purchase_history: "user_id = :user_id"
+#           points_history:   "user_id = :user_id"
+#         allow:
+#           aliases: [customer_db]
 
-  merchant_db:
-    default: 
-      tools: [sql.schema, sql.peek, sql.query]
-    byRole:
-      merchant: 
-        # tools: [sql.query]
-        tools: [sql.schema, sql.query]   # same idea
-        readOnly: true
-        tableAllow: ["merchants", "items", "purchase_history"]
-        rowFilters:
-          items: "merchant_id = :user_id"
-        allow:
-          aliases: [customer_db, merchant_db]
+#   merchant_db:
+#     default: 
+#       tools: [sql.schema, sql.peek, sql.query]
+#     byRole:
+#       merchant: 
+#         # tools: [sql.query]
+#         tools: [sql.schema, sql.query]   # same idea
+#         readOnly: true
+#         tableAllow: ["merchants", "items", "purchase_history"]
+#         rowFilters:
+#           items: "merchant_id = :user_id"
+#         allow:
+#           aliases: [customer_db, merchant_db]
       
-      customer:
-        tools: [sql.schema, sql.query]
-        readOnly: true
-        tableAllow: ["items"]
+#       customer:
+#         tools: [sql.schema, sql.query]
+#         readOnly: true
+#         tableAllow: ["items"]
           
 
         
+
+
+
+
+
+
+
+
+roleBindings:
+  overall_admin:
+    allow:
+      aliases: ["*"]
+    dvd_admin:
+      allow:
+        aliases: [DVD_Rental_DB]
+    music_admin:
+      allow:
+        aliases: [Music_Store_DB]

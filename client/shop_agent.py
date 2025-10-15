@@ -39,10 +39,10 @@ load_dotenv()
 
 PROJECT_ENDPOINT = os.environ["PROJECT_ENDPOINT"]
 MODEL_DEPLOYMENT_NAME = os.environ["MODEL_DEPLOYMENT_NAME"]
-MCP_SERVER_URL = os.environ["MCP_SERVER_URL"].rstrip("/")
+MCP_SERVER_URL_2 = os.environ["MCP_SERVER_URL_2"].rstrip("/")
 
-if not PROJECT_ENDPOINT or not MODEL_DEPLOYMENT_NAME or not MCP_SERVER_URL:
-    print("❌ Missing env: PROJECT_ENDPOINT, MODEL_DEPLOYMENT_NAME, MCP_SERVER_URL")
+if not PROJECT_ENDPOINT or not MODEL_DEPLOYMENT_NAME or not MCP_SERVER_URL_2:
+    print("❌ Missing env: PROJECT_ENDPOINT, MODEL_DEPLOYMENT_NAME, MCP_SERVER_URL_2")
     sys.exit(1)
 
 # Reduce noisy logs unless debugging
@@ -333,7 +333,7 @@ def main():
     # 1) Login and bind identity to MCP
     role, user_id, username = db_login_loop()
 
-    mcp = McpHttpClient(url=MCP_SERVER_URL)
+    mcp = McpHttpClient(url=MCP_SERVER_URL_2)
     mcp.set_identity(role=role, user_id=user_id)  # identity headers required by your server [1](https://enfrasysconsulting-my.sharepoint.com/personal/muhammad_idzhans_enfrasys_com/Documents/Microsoft%20Copilot%20Chat%20Files/All%20files%20code.txt)
     mcp.initialize()  # POST initialize → mcp-session-id header returned by your server [1](https://enfrasysconsulting-my.sharepoint.com/personal/muhammad_idzhans_enfrasys_com/Documents/Microsoft%20Copilot%20Chat%20Files/All%20files%20code.txt)
     mcp.ready()
